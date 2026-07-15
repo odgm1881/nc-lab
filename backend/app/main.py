@@ -1,0 +1,83 @@
+"""Сборка приложения FastAPI: роутеры модулей, обработчики ошибок, CORS.
+
+Модульный монолит: каждый модуль-фича подключает свой роутер здесь.
+"""
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import settings
+from app.core.exceptions import register_exception_handlers
+
+
+def _create_tables_for_sqlite() -> None:
+    """Локальный прототип на SQLite: создаём таблицы из моделей.
+
+    В проде (PostgreSQL) схема управляется миграциями Alembic — здесь ничего не
+    создаётся. Это удобство только для мгновенного запуска прототипа.
+    """
+    if not settings.is_sqlite:
+        return
+    # Импортируем модели, чтобы они зарегистрировались в метаданных Base.
+    from app.database import Base, engine
+    from app.modules.auth import models as _auth  # noqa: F401
+    from app.modules.catalog import models as _catalog  # noqa: F401
+    from app.modules.import_data import models as _import  # noqa: F401
+    from app.modules.operator import models as _operator  # noqa: F401
+
+    Base.metadata.create_all(bind=engine)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    _create_tables_for_sqlite()
+    yield
+
+
+app = FastAPI(
+    title="НК-ЛАБ API",
+    version="0.1.0",
+    description=(
+        "Платформа подготовки и валидации карточек товаров для Национального каталога "
+        "и маркировки. Валидация карточек, вариаций, GTIN и РД до заказа кодов."
+    ),
+    lifespan=lifespan,
+)
+
+# CORS для дев-кабинета на Vite. В проде — ограничить домены.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+register_exception_handlers(app)
+
+
+@app.get("/api/health", tags=["health"])
+def health() -> dict:
+    return {"status": "ok", "env": settings.app_env}
+
+
+# --- подключение роутеров модулей ---
+from app.modules.auth.router import router as auth_router  # noqa: E402
+from app.modules.catalog.router import router as catalog_router  # noqa: E402
+from app.modules.gtin.router import router as gtin_router  # noqa: E402
+from app.modules.import_data.router import router as import_router  # noqa: E402
+from app.modules.operator.router import router as operator_router  # noqa: E402
+from app.modules.rd.router import router as rd_router  # noqa: E402
+from app.modules.validation.router import router as validation_router  # noqa: E402
+from app.modules.variations.router import router as variations_router  # noqa: E402
+
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(import_router, prefix="/api/import", tags=["import"])
+app.include_router(catalog_router, prefix="/api/cards", tags=["catalog"])
+app.include_router(variations_router, prefix="/api/variations", tags=["variations"])
+app.include_router(validation_router, prefix="/api/validation", tags=["validation"])
+app.include_router(gtin_router, prefix="/api/gtin", tags=["gtin"])
+app.include_router(rd_router, prefix="/api/rd", tags=["rd"])
+app.include_router(operator_router, prefix="/api/operator", tags=["operator"])

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.db
+*.sqlite3
+
+# Секреты и окружение
+.env
+.env.local
+
+# Node / фронтенд
+node_modules/
+dist/
+.vite/
+
+# Claude Code — локальные настройки не коммитим, общие (.claude/settings.json) коммитим
+.claude/settings.local.json
+
+# IDE / ОС
+.idea/
+.vscode/
+.DS_Store
