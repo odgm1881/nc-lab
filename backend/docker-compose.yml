@@ -1,4 +1,5 @@
-# Минимальный контур этапа 1: api + db + nginx (см. STACK.md).
+# Полный контур этапа 1: web (nginx+фронтенд) + api (FastAPI) + db (PostgreSQL).
+# После старта открывайте кабинет на http://localhost:8080
 services:
   db:
     image: postgres:17-alpine
@@ -25,11 +26,20 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Применяем миграции и заполняем демо-данными (идемпотентно), затем запускаем API.
     command: >
       sh -c "alembic upgrade head &&
+             python -m app.seed &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
+
+  web:
+    build: ../frontend
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
 
 volumes:
   pgdata:

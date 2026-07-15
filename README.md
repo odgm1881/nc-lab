@@ -71,12 +71,21 @@ uv run ruff check .    # линт
 
 ---
 
-## Запуск в Docker (PostgreSQL)
+## Запуск в Docker (весь стек одной командой)
 
 ```bash
 cd backend
-docker compose up -d   # api + db, миграции Alembic применяются автоматически
+docker compose up -d --build
 ```
+
+Поднимаются три сервиса: **web** (nginx + фронтенд), **api** (FastAPI), **db**
+(PostgreSQL). Миграции Alembic и демо-данные применяются автоматически.
+
+- **Кабинет: http://localhost:8080** ← открывать здесь
+- API/Swagger: http://localhost:8000/docs
+
+> Важно: сам сайт живёт на **:8080** (сервис web). На :8000 только API — его корень
+> `/` намеренно отдаёт 404, страницы там нет.
 
 Переменные окружения — см. [`.env.example`](.env.example). Для прода задать
 `DATABASE_URL` на PostgreSQL и надёжный `JWT_SECRET`.
