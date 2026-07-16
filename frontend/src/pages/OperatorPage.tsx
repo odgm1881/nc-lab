@@ -1,9 +1,10 @@
-import { App, Button, Card, Segmented, Space, Table, Tag, Typography } from 'antd'
+import { App, Button, Card, Segmented, Space, Table, Tag } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
 import { listCards, listTasks, updateTask } from '../api/endpoints'
+import { PageHeader } from '../components/PageHeader'
 import { StatusTag } from '../components/StatusTag'
 import type { Card as CardType, OperatorTask } from '../types'
 
@@ -46,10 +47,10 @@ export function OperatorPage() {
 
   return (
     <div>
-      <Typography.Title level={4}>Консоль оператора</Typography.Title>
-      <Typography.Paragraph type="secondary">
-        Спорные карточки и очередь задач. Оператор берёт задачу, решает и меняет статус.
-      </Typography.Paragraph>
+      <PageHeader
+        title="Консоль оператора"
+        subtitle="Спорные карточки и очередь задач. Оператор берёт задачу, решает и меняет статус."
+      />
 
       <Segmented
         value={tab}

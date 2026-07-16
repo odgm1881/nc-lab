@@ -1,9 +1,10 @@
-import { App, Button, Card, Divider, Form, Input, Space, Table, Tag, Typography } from 'antd'
+import { App, Button, Card, Divider, Form, Input, Space, Table, Tag } from 'antd'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
 import { buildFromVariations, previewVariations } from '../api/endpoints'
+import { PageHeader } from '../components/PageHeader'
 import type { VariationPreview } from '../types'
 
 // Ввод осей через запятую -> массив.
@@ -73,11 +74,10 @@ export function VariationsPage() {
 
   return (
     <div>
-      <Typography.Title level={4}>Построение вариаций</Typography.Title>
-      <Typography.Paragraph type="secondary">
-        Модель раскрывается декартовым произведением осей. Каждая комбинация — отдельный SKU и
-        отдельная карточка НК.
-      </Typography.Paragraph>
+      <PageHeader
+        title="Построение вариаций"
+        subtitle="Модель раскрывается декартовым произведением осей. Каждая комбинация — отдельный SKU и отдельная карточка НК (правило легпрома 1 GTIN = 1 карточка)."
+      />
 
       <Card>
         <Form form={form} layout="vertical" initialValues={{ base_vendor_code: 'TSHIRT-01' }}>

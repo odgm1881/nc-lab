@@ -1,5 +1,5 @@
 import { ArrowLeftOutlined } from '@ant-design/icons'
-import { App, Button, Card, Col, Divider, Form, Input, Row, Select, Space, Typography } from 'antd'
+import { App, Button, Card, Col, Divider, Form, Input, Row, Select, Space } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -36,24 +36,29 @@ export function CardDetailPage() {
 
   const load = useCallback(async () => {
     if (!id) return
-    const c = await getCard(id)
-    setCard(c)
-    form.setFieldsValue({
-      name: c.name,
-      vendor_code: c.vendor_code,
-      category_code: c.category_code,
-      gtin: c.gtin,
-      ...Object.fromEntries(ATTR_FIELDS.map(([k]) => [`attr_${k}`, c.attributes[k] ?? ''])),
-      rd_type: c.rd_data.type ?? undefined,
-      rd_number: c.rd_data.number ?? '',
-      rd_date: c.rd_data.date ?? '',
-      rd_valid_until: c.rd_data.valid_until ?? '',
-    })
-  }, [id, form])
+    setCard(await getCard(id))
+  }, [id])
 
   useEffect(() => {
     load().catch((e) => message.error(errorMessage(e)))
   }, [load, message])
+
+  // Заполняем форму после того, как карточка загружена и Form смонтирована
+  // (иначе AntD ругается «useForm is not connected to any Form element»).
+  useEffect(() => {
+    if (!card) return
+    form.setFieldsValue({
+      name: card.name,
+      vendor_code: card.vendor_code,
+      category_code: card.category_code,
+      gtin: card.gtin,
+      ...Object.fromEntries(ATTR_FIELDS.map(([k]) => [`attr_${k}`, card.attributes[k] ?? ''])),
+      rd_type: card.rd_data.type ?? undefined,
+      rd_number: card.rd_data.number ?? '',
+      rd_date: card.rd_data.date ?? '',
+      rd_valid_until: card.rd_data.valid_until ?? '',
+    })
+  }, [card, form])
 
   const collect = () => {
     const v = form.getFieldsValue()
@@ -123,15 +128,20 @@ export function CardDetailPage() {
 
   return (
     <div>
-      <Space style={{ marginBottom: 12 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/catalog')}>
-          Каталог
-        </Button>
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          {card.name || card.vendor_code}
-        </Typography.Title>
+      <Button
+        icon={<ArrowLeftOutlined />}
+        onClick={() => navigate('/catalog')}
+        style={{ marginBottom: 14 }}
+      >
+        Каталог
+      </Button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+        <h1 style={{ margin: 0, fontSize: 24 }}>{card.name || card.vendor_code}</h1>
         <StatusTag status={card.status} />
-      </Space>
+        <span style={{ color: 'var(--faint)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+          {card.vendor_code}
+        </span>
+      </div>
 
       <Row gutter={16}>
         <Col xs={24} lg={15}>

@@ -1,0 +1,161 @@
+/* НК-ЛАБ — дизайн-система кабинета.
+   Принципы: один акцент + нейтральная база, единая шкала радиусов, тонированные
+   тени, кастомные easing-кривые, только transform/opacity в анимациях,
+   уважение prefers-reduced-motion. (taste / emil-design-eng / apple-design) */
+
+:root {
+  /* --- палитра: холодный slate + брендовый teal --- */
+  --bg: #f5f7f9;
+  --bg-sunken: #eef1f5;
+  --surface: #ffffff;
+  --surface-2: #fbfcfd;
+
+  --ink: #0f172a;          /* заголовки */
+  --text: #334155;         /* основной текст */
+  --muted: #64748b;        /* вторичный */
+  --faint: #94a3b8;        /* приглушённый */
+  --hairline: #e6eaf0;
+
+  --accent: #0f766e;       /* teal-700 — бренд */
+  --accent-2: #0d9488;     /* teal-600 — интерактив */
+  --accent-strong: #0b5f58;
+  --accent-soft: #e9fbf6;
+  --accent-contrast: #ffffff;
+
+  --success: #16a34a; --success-soft: #e9f9ef;
+  --error: #e11d48;   --error-soft: #fdeef2;
+  --warning: #d97706; --warning-soft: #fdf3e7;
+  --info: #2563eb;    --info-soft: #eef3ff;
+
+  /* тёмный «структурный» сайдбар */
+  --side-bg: #0d1521;
+  --side-bg-2: #111c2b;
+  --side-ink: #eef2f8;
+  --side-muted: #93a1b5;
+  --side-hairline: rgba(255, 255, 255, 0.08);
+  --side-active: rgba(13, 148, 136, 0.16);
+
+  /* радиусы (одна шкала) */
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --r-pill: 999px;
+
+  /* тени, тонированные к slate — без чистого чёрного */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 4px 14px -3px rgba(15, 23, 42, 0.10), 0 2px 6px -2px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 18px 40px -12px rgba(15, 23, 42, 0.20), 0 6px 16px -6px rgba(15, 23, 42, 0.10);
+
+  /* easing (встроенные CSS-кривые слишком слабые — emil) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* размерная типографика: крупное — с отрицательным трекингом (apple §15) */
+h1, h2, h3, h4 { color: var(--ink); font-weight: 650; letter-spacing: -0.02em; }
+h1 { letter-spacing: -0.03em; }
+
+::selection { background: var(--accent-soft); color: var(--accent-strong); }
+
+/* --- тактильная отдача: мгновенный отклик на нажатие (apple §1, emil) --- */
+.ant-btn { transition: transform 120ms var(--ease-out), background-color 160ms var(--ease-out),
+  border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out) !important; }
+.ant-btn:active { transform: scale(0.97); }
+.tap:active { transform: scale(0.97); }
+
+/* --- вход контента: rise (opacity + подъём), со стаггером через --i --- */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.rise { animation: rise 0.5s var(--ease-out) both; }
+.stagger > * { animation: rise 0.5s var(--ease-out) both; }
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 45ms; }
+.stagger > *:nth-child(3) { animation-delay: 90ms; }
+.stagger > *:nth-child(4) { animation-delay: 135ms; }
+.stagger > *:nth-child(5) { animation-delay: 180ms; }
+.stagger > *:nth-child(6) { animation-delay: 225ms; }
+
+/* reveal-on-scroll (лёгкий, один раз) */
+.reveal { opacity: 0; transform: translateY(14px); }
+.reveal.in { opacity: 1; transform: none;
+  transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out); }
+
+/* --- статус-пилюли (мягкий фон + цветной текст + точка) --- */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; border-radius: var(--r-pill);
+  font-size: 12px; font-weight: 600; line-height: 20px; white-space: nowrap;
+}
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill--draft { color: #475569; background: #eef1f5; }
+.pill--validating { color: var(--info); background: var(--info-soft); }
+.pill--valid { color: var(--success); background: var(--success-soft); }
+.pill--error { color: var(--error); background: var(--error-soft); }
+.pill--published { color: var(--accent); background: var(--accent-soft); }
+
+/* карточки-ссылки: лёгкий подъём на hover (только там, где это hover-устройство) */
+@media (hover: hover) and (pointer: fine) {
+  .lift { transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out); }
+  .lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+}
+
+/* тонкие скроллбары */
+* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
+
+/* --- AntD доводка --- */
+.ant-card { box-shadow: var(--shadow-sm); }
+.ant-table-thead > tr > th {
+  background: var(--surface-2) !important;
+  color: var(--muted) !important;
+  font-weight: 600 !important;
+  font-size: 12px; letter-spacing: 0.02em;
+}
+.ant-table-tbody > tr { transition: background-color 140ms var(--ease-out); }
+.ant-statistic-content { font-variant-numeric: tabular-nums; }
+
+/* фокус-кольцо в бренд-цвете */
+:where(.ant-btn, .ant-input, .ant-input-affix-wrapper, .ant-select-selector):focus-visible,
+.ant-input:focus, .ant-input-focused { outline: none; }
+
+/* адаптивность: на узких экранах прячем брендовую панель логина и сайдбар */
+@media (max-width: 900px) {
+  .login-brand { display: none !important; }
+}
+
+/* доступность: мягче анимации при reduced-motion (apple §14) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.08ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal { opacity: 1; transform: none; }
+  .ant-btn:active, .tap:active { transform: none; }
+}

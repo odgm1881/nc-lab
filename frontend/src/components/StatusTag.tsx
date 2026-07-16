@@ -1,16 +1,14 @@
-import { Tag } from 'antd'
-
 import type { CardStatus } from '../types'
 
-const MAP: Record<CardStatus, { color: string; label: string }> = {
-  draft: { color: 'default', label: 'Черновик' },
-  validating: { color: 'processing', label: 'Валидация' },
-  valid: { color: 'success', label: 'Валидна' },
-  error: { color: 'error', label: 'Ошибки' },
-  published: { color: 'blue', label: 'Опубликована' },
+const LABEL: Record<CardStatus, string> = {
+  draft: 'Черновик',
+  validating: 'Валидация',
+  valid: 'Валидна',
+  error: 'Ошибки',
+  published: 'Опубликована',
 }
 
+// Мягкая статус-пилюля (фон-тинт + цветной текст + точка). Класс .pill в global.css.
 export function StatusTag({ status }: { status: CardStatus }) {
-  const s = MAP[status] ?? { color: 'default', label: status }
-  return <Tag color={s.color}>{s.label}</Tag>
+  return <span className={`pill pill--${status}`}>{LABEL[status] ?? status}</span>
 }

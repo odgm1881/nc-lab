@@ -1,18 +1,20 @@
-import { App, Button, Card, Input, Select, Space, Table, Typography } from 'antd'
+import { InboxOutlined } from '@ant-design/icons'
+import { App, Button, Card, Empty, Input, Segmented, Table } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
 import { listCards, validateCard } from '../api/endpoints'
+import { PageHeader } from '../components/PageHeader'
 import { StatusTag } from '../components/StatusTag'
 import type { Card as CardType, CardStatus } from '../types'
 
 const STATUS_OPTIONS = [
-  { value: '', label: 'Все статусы' },
-  { value: 'draft', label: 'Черновик' },
-  { value: 'valid', label: 'Валидна' },
+  { value: '', label: 'Все' },
+  { value: 'draft', label: 'Черновики' },
+  { value: 'valid', label: 'Валидны' },
   { value: 'error', label: 'Ошибки' },
-  { value: 'published', label: 'Опубликована' },
+  { value: 'published', label: 'Опубликованы' },
 ]
 
 export function CatalogPage() {
@@ -21,7 +23,7 @@ export function CatalogPage() {
   const [params, setParams] = useSearchParams()
   const [rows, setRows] = useState<CardType[]>([])
   const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const status = params.get('status') ?? ''
 
@@ -55,42 +57,101 @@ export function CatalogPage() {
 
   return (
     <div>
-      <Typography.Title level={4}>Каталог карточек</Typography.Title>
-      <Card>
-        <Space style={{ marginBottom: 16 }} wrap>
-          <Select
+      <PageHeader
+        title="Каталог карточек"
+        subtitle={`Всего карточек: ${total}. Нажмите на строку, чтобы открыть и отредактировать карточку.`}
+        extra={<Button type="primary" onClick={() => navigate('/variations')}>Создать вариации</Button>}
+      />
+
+      <Card styles={{ body: { padding: 0 } }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            padding: 16,
+            borderBottom: '1px solid var(--hairline)',
+          }}
+        >
+          <Segmented
             value={status}
-            style={{ width: 180 }}
             options={STATUS_OPTIONS}
-            onChange={(v) => setParams(v ? { status: v } : {})}
+            onChange={(v) => setParams(v ? { status: String(v) } : {})}
           />
           <Input.Search
             placeholder="Поиск по имени, артикулу, GTIN"
             allowClear
-            style={{ width: 320 }}
+            style={{ width: 320, maxWidth: '100%' }}
             onSearch={(v) => setSearch(v)}
           />
-          <Typography.Text type="secondary">Всего: {total}</Typography.Text>
-        </Space>
+        </div>
 
         <Table
           rowKey="id"
           loading={loading}
           dataSource={rows}
-          pagination={{ pageSize: 20 }}
+          pagination={{ pageSize: 20, hideOnSinglePage: true }}
+          locale={{
+            emptyText: (
+              <Empty
+                image={<InboxOutlined style={{ fontSize: 40, color: 'var(--faint)' }} />}
+                description={
+                  <span style={{ color: 'var(--muted)' }}>
+                    Карточек пока нет — импортируйте номенклатуру или создайте вариации
+                  </span>
+                }
+                style={{ padding: '32px 0' }}
+              >
+                <Button type="primary" onClick={() => navigate('/import')}>
+                  Импортировать
+                </Button>
+              </Empty>
+            ),
+          }}
           onRow={(r) => ({ onClick: () => navigate(`/catalog/${r.id}`), style: { cursor: 'pointer' } })}
           columns={[
-            { title: 'Наименование', dataIndex: 'name' },
-            { title: 'Артикул', dataIndex: 'vendor_code' },
-            { title: 'Категория', dataIndex: 'category_code' },
-            { title: 'GTIN', dataIndex: 'gtin', render: (g) => g ?? '—' },
-            { title: 'Статус', dataIndex: 'status', render: (s: CardStatus) => <StatusTag status={s} /> },
             {
-              title: 'Замечания',
-              render: (_, r) => (r.validation_issues.length ? r.validation_issues.length : '—'),
+              title: 'Наименование',
+              dataIndex: 'name',
+              render: (name, r) => (
+                <div>
+                  <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{name || '—'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--faint)', fontFamily: 'var(--font-mono)' }}>
+                    {r.vendor_code}
+                  </div>
+                </div>
+              ),
+            },
+            { title: 'Категория', dataIndex: 'category_code', width: 110, render: (c) => c ?? '—' },
+            {
+              title: 'GTIN',
+              dataIndex: 'gtin',
+              width: 160,
+              render: (g) =>
+                g ? <span style={{ fontFamily: 'var(--font-mono)' }}>{g}</span> : <span style={{ color: 'var(--faint)' }}>—</span>,
             },
             {
-              title: 'Действия',
+              title: 'Статус',
+              dataIndex: 'status',
+              width: 150,
+              render: (s: CardStatus) => <StatusTag status={s} />,
+            },
+            {
+              title: 'Замечания',
+              dataIndex: 'validation_issues',
+              width: 110,
+              render: (issues: CardType['validation_issues']) =>
+                issues.length ? (
+                  <span style={{ color: 'var(--error)', fontWeight: 600 }}>{issues.length}</span>
+                ) : (
+                  <span style={{ color: 'var(--faint)' }}>—</span>
+                ),
+            },
+            {
+              title: '',
+              width: 130,
               render: (_, r) => (
                 <Button
                   size="small"

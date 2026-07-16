@@ -1,10 +1,11 @@
 import { InboxOutlined } from '@ant-design/icons'
-import { App, Button, Card, Space, Table, Tag, Typography, Upload } from 'antd'
+import { App, Button, Card, Space, Table, Tag, Upload } from 'antd'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
 import { importCommit, importPreview } from '../api/endpoints'
+import { PageHeader } from '../components/PageHeader'
 import type { ImportPreview } from '../types'
 
 export function ImportPage() {
@@ -42,11 +43,10 @@ export function ImportPage() {
 
   return (
     <div>
-      <Typography.Title level={4}>Импорт номенклатуры</Typography.Title>
-      <Typography.Paragraph type="secondary">
-        Excel (.xlsx) или CSV. Заголовки распознаются автоматически (Наименование, Артикул,
-        Категория, GTIN, Цвет, Размер, Пол, Состав, Тип РД, Номер РД, Дата РД…).
-      </Typography.Paragraph>
+      <PageHeader
+        title="Импорт номенклатуры"
+        subtitle="Excel (.xlsx) или CSV. Заголовки распознаются автоматически: Наименование, Артикул, Категория, GTIN, Цвет, Размер, Пол, Состав, Тип РД, Номер РД, Дата РД…"
+      />
 
       <Card>
         <Upload.Dragger
