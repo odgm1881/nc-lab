@@ -16,6 +16,8 @@ from app.modules.catalog.schemas import (
     CardOut,
     CardUpdateIn,
     CardValidateOut,
+    ModelsOut,
+    ValidateAllOut,
 )
 
 router = APIRouter()
@@ -31,6 +33,7 @@ def _client_id(user: User) -> str:
 def list_cards(
     status: str | None = None,
     category_code: str | None = None,
+    name: str | None = None,
     search: str | None = None,
     limit: int = Query(100, le=500),
     offset: int = 0,
@@ -42,10 +45,30 @@ def list_cards(
         _client_id(user),
         status=status,
         category_code=category_code,
+        name=name,
         search=search,
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/models", response_model=ModelsOut)
+def list_models(
+    search: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ModelsOut:
+    """Каталог, сгруппированный по модели (товару): вариации не смешиваются."""
+    return service.list_models(db, _client_id(user), search=search)
+
+
+@router.post("/validate-all", response_model=ValidateAllOut)
+def validate_all(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ValidateAllOut:
+    """Провалидировать все неопубликованные карточки одним нажатием."""
+    return service.validate_all(db, _client_id(user))
 
 
 @router.post("", response_model=CardOut, status_code=201)

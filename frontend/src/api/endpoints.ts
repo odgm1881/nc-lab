@@ -6,8 +6,10 @@ import type {
   CardValidateResponse,
   ImportCommit,
   ImportPreview,
+  ModelsList,
   TaskList,
   User,
+  ValidateAllResult,
   ValidationResult,
   VariationPreview,
 } from '../types'
@@ -30,10 +32,17 @@ export const me = () => api.get<User>('/auth/me').then((r) => r.data)
 export const listCards = (params: {
   status?: string
   category_code?: string
+  name?: string
   search?: string
   limit?: number
   offset?: number
 }) => api.get<CardList>('/cards', { params }).then((r) => r.data)
+
+export const listModels = (search?: string) =>
+  api.get<ModelsList>('/cards/models', { params: { search } }).then((r) => r.data)
+
+export const validateAll = () =>
+  api.post<ValidateAllResult>('/cards/validate-all').then((r) => r.data)
 
 export const getCard = (id: string) => api.get<Card>(`/cards/${id}`).then((r) => r.data)
 

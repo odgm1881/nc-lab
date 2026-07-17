@@ -1,36 +1,84 @@
-import { InboxOutlined } from '@ant-design/icons'
-import { App, Button, Card, Empty, Input, Segmented, Table } from 'antd'
+import { CheckCircleOutlined, InboxOutlined, RightOutlined } from '@ant-design/icons'
+import { App, Button, Card, Empty, Input, Segmented, Space, Table, Tag } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
-import { listCards, validateCard } from '../api/endpoints'
+import { listCards, listModels, validateAll } from '../api/endpoints'
 import { PageHeader } from '../components/PageHeader'
 import { StatusTag } from '../components/StatusTag'
-import type { Card as CardType, CardStatus } from '../types'
+import type { Card as CardType, CardStatus, ModelGroup } from '../types'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Все' },
-  { value: 'draft', label: 'Черновики' },
   { value: 'valid', label: 'Валидны' },
   { value: 'error', label: 'Ошибки' },
+  { value: 'draft', label: 'Черновики' },
   { value: 'published', label: 'Опубликованы' },
 ]
+
+const COUNT_META: Record<string, { color: string; label: string }> = {
+  valid: { color: 'var(--success)', label: 'валидны' },
+  error: { color: 'var(--error)', label: 'ошибки' },
+  draft: { color: '#64748b', label: 'черновики' },
+  published: { color: 'var(--accent)', label: 'опубл.' },
+  validating: { color: 'var(--info)', label: 'валидация' },
+}
+
+function CountChips({ counts }: { counts: Record<string, number> }) {
+  const order = ['error', 'draft', 'valid', 'published', 'validating']
+  const present = order.filter((k) => counts[k])
+  if (!present.length) return <span style={{ color: 'var(--faint)' }}>—</span>
+  return (
+    <Space size={6} wrap>
+      {present.map((k) => (
+        <span
+          key={k}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: 'var(--text)' }}
+        >
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: COUNT_META[k].color }} />
+          <b style={{ fontVariantNumeric: 'tabular-nums' }}>{counts[k]}</b> {COUNT_META[k].label}
+        </span>
+      ))}
+    </Space>
+  )
+}
 
 export function CatalogPage() {
   const { message } = App.useApp()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
+
+  const [view, setView] = useState<'models' | 'list'>('models')
+  const [modelFilter, setModelFilter] = useState<string | null>(null)
+  const [models, setModels] = useState<ModelGroup[]>([])
   const [rows, setRows] = useState<CardType[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [validating, setValidating] = useState(false)
   const [search, setSearch] = useState('')
   const status = params.get('status') ?? ''
 
-  const load = useCallback(async () => {
+  const loadModels = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await listCards({ status: status || undefined, search: search || undefined, limit: 200 })
+      setModels((await listModels(search || undefined)).items)
+    } catch (e) {
+      message.error(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [search, message])
+
+  const loadList = useCallback(async () => {
+    setLoading(true)
+    try {
+      const r = await listCards({
+        status: status || undefined,
+        name: modelFilter || undefined,
+        search: search || undefined,
+        limit: 200,
+      })
       setRows(r.items)
       setTotal(r.total)
     } catch (e) {
@@ -38,29 +86,48 @@ export function CatalogPage() {
     } finally {
       setLoading(false)
     }
-  }, [status, search, message])
+  }, [status, modelFilter, search, message])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    if (view === 'models') void loadModels()
+    else void loadList()
+  }, [view, loadModels, loadList])
 
-  const onValidate = async (id: string) => {
+  const onValidateAll = async () => {
+    setValidating(true)
     try {
-      const r = await validateCard(id)
-      if (r.result.is_valid) message.success('Карточка валидна')
-      else message.warning(`Найдено ошибок: ${r.result.errors.length}`)
-      void load()
+      const r = await validateAll()
+      message.success(`Провалидировано: ${r.validated}. Валидных: ${r.valid}, с ошибками: ${r.error}`)
+      if (view === 'models') void loadModels()
+      else void loadList()
     } catch (e) {
       message.error(errorMessage(e))
+    } finally {
+      setValidating(false)
     }
+  }
+
+  const openModel = (name: string) => {
+    setModelFilter(name)
+    setParams({})
+    setView('list')
   }
 
   return (
     <div>
       <PageHeader
         title="Каталог карточек"
-        subtitle={`Всего карточек: ${total}. Нажмите на строку, чтобы открыть и отредактировать карточку.`}
-        extra={<Button type="primary" onClick={() => navigate('/variations')}>Создать вариации</Button>}
+        subtitle="Карточки сгруппированы по модели товара — вариации одной модели не смешиваются с другими."
+        extra={
+          <>
+            <Button icon={<CheckCircleOutlined />} loading={validating} onClick={onValidateAll}>
+              Провалидировать всё
+            </Button>
+            <Button type="primary" onClick={() => navigate('/variations')}>
+              Создать вариации
+            </Button>
+          </>
+        }
       />
 
       <Card styles={{ body: { padding: 0 } }}>
@@ -75,97 +142,148 @@ export function CatalogPage() {
             borderBottom: '1px solid var(--hairline)',
           }}
         >
-          <Segmented
-            value={status}
-            options={STATUS_OPTIONS}
-            onChange={(v) => setParams(v ? { status: String(v) } : {})}
-          />
+          <Space size={12} wrap>
+            <Segmented
+              value={view}
+              onChange={(v) => {
+                setView(v as 'models' | 'list')
+                if (v === 'models') setModelFilter(null)
+              }}
+              options={[
+                { label: 'Модели', value: 'models' },
+                { label: 'Все карточки', value: 'list' },
+              ]}
+            />
+            {view === 'list' && (
+              <Segmented
+                value={status}
+                options={STATUS_OPTIONS}
+                onChange={(v) => setParams(v ? { status: String(v) } : {})}
+              />
+            )}
+            {view === 'list' && modelFilter && (
+              <Tag closable onClose={() => setModelFilter(null)} color="cyan">
+                Модель: {modelFilter}
+              </Tag>
+            )}
+          </Space>
           <Input.Search
-            placeholder="Поиск по имени, артикулу, GTIN"
+            placeholder={view === 'models' ? 'Поиск модели' : 'Поиск: имя, артикул, GTIN'}
             allowClear
-            style={{ width: 320, maxWidth: '100%' }}
+            style={{ width: 300, maxWidth: '100%' }}
             onSearch={(v) => setSearch(v)}
           />
         </div>
 
-        <Table
-          rowKey="id"
-          loading={loading}
-          dataSource={rows}
-          pagination={{ pageSize: 20, hideOnSinglePage: true }}
-          locale={{
-            emptyText: (
-              <Empty
-                image={<InboxOutlined style={{ fontSize: 40, color: 'var(--faint)' }} />}
-                description={
-                  <span style={{ color: 'var(--muted)' }}>
-                    Карточек пока нет — импортируйте номенклатуру или создайте вариации
-                  </span>
-                }
-                style={{ padding: '32px 0' }}
-              >
-                <Button type="primary" onClick={() => navigate('/import')}>
-                  Импортировать
-                </Button>
-              </Empty>
-            ),
-          }}
-          onRow={(r) => ({ onClick: () => navigate(`/catalog/${r.id}`), style: { cursor: 'pointer' } })}
-          columns={[
-            {
-              title: 'Наименование',
-              dataIndex: 'name',
-              render: (name, r) => (
-                <div>
-                  <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{name || '—'}</div>
-                  <div style={{ fontSize: 12, color: 'var(--faint)', fontFamily: 'var(--font-mono)' }}>
-                    {r.vendor_code}
-                  </div>
-                </div>
-              ),
-            },
-            { title: 'Категория', dataIndex: 'category_code', width: 110, render: (c) => c ?? '—' },
-            {
-              title: 'GTIN',
-              dataIndex: 'gtin',
-              width: 160,
-              render: (g) =>
-                g ? <span style={{ fontFamily: 'var(--font-mono)' }}>{g}</span> : <span style={{ color: 'var(--faint)' }}>—</span>,
-            },
-            {
-              title: 'Статус',
-              dataIndex: 'status',
-              width: 150,
-              render: (s: CardStatus) => <StatusTag status={s} />,
-            },
-            {
-              title: 'Замечания',
-              dataIndex: 'validation_issues',
-              width: 110,
-              render: (issues: CardType['validation_issues']) =>
-                issues.length ? (
-                  <span style={{ color: 'var(--error)', fontWeight: 600 }}>{issues.length}</span>
-                ) : (
-                  <span style={{ color: 'var(--faint)' }}>—</span>
-                ),
-            },
-            {
-              title: '',
-              width: 130,
-              render: (_, r) => (
-                <Button
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void onValidate(r.id)
-                  }}
+        {view === 'models' ? (
+          <Table
+            rowKey="name"
+            loading={loading}
+            dataSource={models}
+            pagination={{ pageSize: 20, hideOnSinglePage: true }}
+            locale={{
+              emptyText: (
+                <Empty
+                  image={<InboxOutlined style={{ fontSize: 40, color: 'var(--faint)' }} />}
+                  description={<span style={{ color: 'var(--muted)' }}>Моделей пока нет</span>}
+                  style={{ padding: '32px 0' }}
                 >
-                  Валидировать
-                </Button>
+                  <Button type="primary" onClick={() => navigate('/import')}>
+                    Импортировать
+                  </Button>
+                </Empty>
               ),
-            },
-          ]}
-        />
+            }}
+            onRow={(m) => ({ onClick: () => openModel(m.name), style: { cursor: 'pointer' } })}
+            columns={[
+              {
+                title: 'Модель',
+                dataIndex: 'name',
+                render: (name) => <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{name}</span>,
+              },
+              { title: 'Категория', dataIndex: 'category_code', width: 110, render: (c) => c ?? '—' },
+              {
+                title: 'Вариаций',
+                dataIndex: 'total',
+                width: 100,
+                render: (t) => <b style={{ fontVariantNumeric: 'tabular-nums' }}>{t}</b>,
+              },
+              {
+                title: 'Статусы',
+                render: (_, m) => <CountChips counts={m.counts} />,
+              },
+              {
+                title: '',
+                width: 110,
+                render: () => (
+                  <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                    Открыть <RightOutlined style={{ fontSize: 11 }} />
+                  </span>
+                ),
+              },
+            ]}
+          />
+        ) : (
+          <Table
+            rowKey="id"
+            loading={loading}
+            dataSource={rows}
+            pagination={{ pageSize: 20, hideOnSinglePage: true }}
+            locale={{
+              emptyText: (
+                <Empty
+                  description={<span style={{ color: 'var(--muted)' }}>Карточек нет</span>}
+                  style={{ padding: '32px 0' }}
+                />
+              ),
+            }}
+            onRow={(r) => ({ onClick: () => navigate(`/catalog/${r.id}`), style: { cursor: 'pointer' } })}
+            columns={[
+              {
+                title: 'Наименование',
+                dataIndex: 'name',
+                render: (name, r) => (
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{name || '—'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--faint)', fontFamily: 'var(--font-mono)' }}>
+                      {r.vendor_code}
+                    </div>
+                  </div>
+                ),
+              },
+              { title: 'Категория', dataIndex: 'category_code', width: 110, render: (c) => c ?? '—' },
+              {
+                title: 'GTIN',
+                dataIndex: 'gtin',
+                width: 160,
+                render: (g) =>
+                  g ? (
+                    <span style={{ fontFamily: 'var(--font-mono)' }}>{g}</span>
+                  ) : (
+                    <span style={{ color: 'var(--faint)' }}>—</span>
+                  ),
+              },
+              {
+                title: 'Статус',
+                dataIndex: 'status',
+                width: 150,
+                render: (s: CardStatus) => <StatusTag status={s} />,
+              },
+              {
+                title: 'Замечания',
+                dataIndex: 'validation_issues',
+                width: 110,
+                render: (issues: CardType['validation_issues']) =>
+                  issues.length ? (
+                    <span style={{ color: 'var(--error)', fontWeight: 600 }}>{issues.length}</span>
+                  ) : (
+                    <span style={{ color: 'var(--faint)' }}>—</span>
+                  ),
+              },
+            ]}
+            footer={() => <span style={{ color: 'var(--muted)' }}>Всего: {total}</span>}
+          />
+        )}
       </Card>
     </div>
   )

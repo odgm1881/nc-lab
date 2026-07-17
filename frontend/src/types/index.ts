@@ -82,6 +82,23 @@ export interface ImportCommit {
   cards_created: number
 }
 
+export interface ModelGroup {
+  name: string
+  category_code: string | null
+  total: number
+  counts: Record<string, number>
+}
+
+export interface ModelsList {
+  items: ModelGroup[]
+}
+
+export interface ValidateAllResult {
+  validated: number
+  valid: number
+  error: number
+}
+
 export interface OperatorTask {
   id: string
   client_id: string

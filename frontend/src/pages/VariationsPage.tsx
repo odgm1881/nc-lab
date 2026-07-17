@@ -63,7 +63,7 @@ export function VariationsPage() {
         genders: toList(v.genders),
         completeness: toList(v.completeness),
       })
-      message.success(`Создано карточек: ${res.created}`)
+      message.success(`Создано и провалидировано карточек: ${res.created}`)
       navigate('/catalog')
     } catch (e) {
       message.error(errorMessage(e))

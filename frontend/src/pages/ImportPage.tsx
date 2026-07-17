@@ -32,7 +32,9 @@ export function ImportPage() {
     setBusy(true)
     try {
       const res = await importCommit(file)
-      message.success(`Импортировано строк: ${res.rows_total}, создано карточек: ${res.cards_created}`)
+      message.success(
+        `Импортировано строк: ${res.rows_total}, создано и автоматически провалидировано карточек: ${res.cards_created}`,
+      )
       navigate('/catalog')
     } catch (e) {
       message.error(errorMessage(e))

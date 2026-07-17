@@ -32,6 +32,11 @@ HEADER_MAP: dict[str, str] = {
     "штрих-код": "gtin",
     "баркод": "gtin",
     "ean": "gtin",
+    # вид изделия (обязательный атрибут категории)
+    "вид изделия": "item_type",
+    "тип изделия": "item_type",
+    "вид": "item_type",
+    "item_type": "item_type",
     # оси вариаций
     "цвет": "color",
     "color": "color",
@@ -83,6 +88,7 @@ RD_TYPE_MAP = {
 }
 
 ATTRIBUTE_FIELDS = (
+    "item_type",
     "color",
     "size",
     "gender",

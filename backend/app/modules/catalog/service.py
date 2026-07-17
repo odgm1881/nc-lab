@@ -3,6 +3,11 @@
 Здесь оркестрация и транзакции. Доменные правила берём из модуля validation
 (реестр правил), логику вариаций — из модуля variations. Каталог не лезет в чужие
 таблицы: он владеет только `cards`.
+
+Чтобы уменьшить ручную работу:
+- карточки автоматически валидируются сразу после импорта и построения вариаций;
+- есть массовая валидация всех неопубликованных карточек (validate_all);
+- каталог группируется по модели (name) — вариации одного товара не смешиваются.
 """
 
 from __future__ import annotations
@@ -27,10 +32,13 @@ from app.modules.catalog.schemas import (
     CardOut,
     CardUpdateIn,
     CardValidateOut,
+    ModelGroupOut,
+    ModelsOut,
+    ValidateAllOut,
 )
 from app.modules.gtin.domain import normalize_gtin
 from app.modules.validation.domain.registry import run_validation
-from app.modules.validation.domain.result import CardView, ValidationContext
+from app.modules.validation.domain.result import CardView, ValidationContext, ValidationResult
 from app.modules.validation.service import result_to_schema
 from app.modules.variations.domain import (
     VariationAxes,
@@ -48,6 +56,56 @@ def _require(db: Session, client_id: str, card_id: str) -> Card:
     if card is None:
         raise NotFoundError("Карточка не найдена.")
     return card
+
+
+# --- валидация: переиспользуемые помощники (без commit) ---
+
+
+def _card_view(card: Card) -> CardView:
+    return CardView(
+        id=card.id,
+        client_id=card.client_id,
+        category_code=card.category_code,
+        gtin=card.gtin,
+        attributes=card.attributes or {},
+        rd_data=card.rd_data or {},
+    )
+
+
+def _store_result(card: Card, result: ValidationResult) -> None:
+    card.status = STATUS_VALID if result.is_valid else STATUS_ERROR
+    card.validation_issues = [
+        {"code": i.code, "severity": i.severity.value, "message": i.message, "field": i.field}
+        for i in result.issues
+    ]
+
+
+def _validate_one(db: Session, client_id: str, card: Card) -> ValidationResult:
+    context = ValidationContext(gtin_index=repo.gtin_index(db, client_id, exclude_id=card.id))
+    result = run_validation(_card_view(card), context)
+    _store_result(card, result)
+    return result
+
+
+def _validate_many(db: Session, client_id: str, cards: list[Card]) -> None:
+    """Прогнать список карточек через правила за один проход. Без commit.
+
+    Индекс GTIN строится один раз. Правило уникальности сравнивает владельца GTIN с
+    id самой карточки, поэтому общий индекс подходит для всех карточек сразу.
+    """
+    if not cards:
+        return
+    index = repo.gtin_index(db, client_id)
+    for card in cards:
+        result = run_validation(_card_view(card), ValidationContext(gtin_index=index))
+        _store_result(card, result)
+
+
+def _status_counts(db: Session, client_id: str) -> dict[str, int]:
+    return repo.status_counts(db, client_id)
+
+
+# --- CRUD ---
 
 
 def create_card(db: Session, client_id: str, data: CardCreateIn) -> CardOut:
@@ -81,6 +139,7 @@ def list_cards(
     *,
     status: str | None = None,
     category_code: str | None = None,
+    name: str | None = None,
     search: str | None = None,
     limit: int = 100,
     offset: int = 0,
@@ -90,6 +149,7 @@ def list_cards(
         client_id,
         status=status,
         category_code=category_code,
+        name=name,
         search=search,
         limit=limit,
         offset=offset,
@@ -130,27 +190,25 @@ def delete_card(db: Session, client_id: str, card_id: str) -> None:
 
 
 def validate_card(db: Session, client_id: str, card_id: str) -> CardValidateOut:
-    """Прогнать карточку через ядро правил и обновить статус valid/error."""
+    """Прогнать одну карточку через ядро правил и обновить статус valid/error."""
     card = _require(db, client_id, card_id)
-    context = ValidationContext(gtin_index=repo.gtin_index(db, client_id, exclude_id=card.id))
-    view = CardView(
-        id=card.id,
-        client_id=card.client_id,
-        category_code=card.category_code,
-        gtin=card.gtin,
-        attributes=card.attributes or {},
-        rd_data=card.rd_data or {},
-    )
-    result = run_validation(view, context)
-
-    card.status = STATUS_VALID if result.is_valid else STATUS_ERROR
-    card.validation_issues = [
-        {"code": i.code, "severity": i.severity.value, "message": i.message, "field": i.field}
-        for i in result.issues
-    ]
+    result = _validate_one(db, client_id, card)
     db.commit()
     db.refresh(card)
     return CardValidateOut(card=_to_out(card), result=result_to_schema(result))
+
+
+def validate_all(db: Session, client_id: str) -> ValidateAllOut:
+    """Массовая валидация всех неопубликованных карточек одним нажатием."""
+    cards = repo.list_unpublished(db, client_id)
+    _validate_many(db, client_id, cards)
+    db.commit()
+    counts = _status_counts(db, client_id)
+    return ValidateAllOut(
+        validated=len(cards),
+        valid=counts.get(STATUS_VALID, 0),
+        error=counts.get(STATUS_ERROR, 0),
+    )
 
 
 def publish_card(db: Session, client_id: str, card_id: str) -> CardOut:
@@ -170,10 +228,11 @@ def publish_card(db: Session, client_id: str, card_id: str) -> CardOut:
 def build_from_variations(
     db: Session, client_id: str, data: BuildFromVariationsIn
 ) -> BuildFromVariationsOut:
-    """Создать по одной карточке-черновику на каждую комбинацию вариаций.
+    """Создать по одной карточке на каждую комбинацию вариаций и сразу провалидировать.
 
     Правило легпрома: каждая комбинация цвет×размер×пол×комплектность — отдельная
-    карточка. GTIN не проставляется автоматически (оператор/клиент вносит вручную).
+    карточка. Автовалидация сразу показывает, чего не хватает (обычно GTIN), без
+    ручного клика по каждой карточке.
     """
     axes = VariationAxes(
         colors=data.colors,
@@ -197,6 +256,7 @@ def build_from_variations(
         )
         repo.add(db, card)
         cards.append(card)
+    _validate_many(db, client_id, cards)  # автовалидация
     db.commit()
     for c in cards:
         db.refresh(c)
@@ -204,15 +264,15 @@ def build_from_variations(
 
 
 def create_cards_bulk(db: Session, client_id: str, payloads: list[CardCreateIn]) -> int:
-    """Массовое создание карточек-черновиков (для импорта).
+    """Массовое создание карточек (для импорта) с автовалидацией. Без commit.
 
-    Не коммитит — транзакцией управляет вызывающий сценарий. Чтобы не нарушить
-    правило «1 GTIN = 1 карточка», повторяющиеся GTIN (внутри пачки или уже
-    существующие) сбрасываются в NULL: такая карточка остаётся черновиком, и GTIN
-    ей проставит оператор.
+    Транзакцией управляет вызывающий сценарий. Чтобы не нарушить правило
+    «1 GTIN = 1 карточка», повторяющиеся GTIN (внутри пачки или уже существующие)
+    сбрасываются в NULL — такая карточка помечается ошибкой (нет GTIN), и оператор
+    видит это сразу, без ручной валидации.
     """
     seen: set[str] = set(repo.gtin_index(db, client_id).keys())
-    created = 0
+    cards: list[Card] = []
     for data in payloads:
         gtin = normalize_gtin(data.gtin) or None
         if gtin and gtin in seen:
@@ -230,8 +290,30 @@ def create_cards_bulk(db: Session, client_id: str, payloads: list[CardCreateIn])
             status=STATUS_DRAFT,
         )
         repo.add(db, card)
-        created += 1
-    return created
+        cards.append(card)
+    _validate_many(db, client_id, cards)  # автовалидация сразу после импорта
+    return len(cards)
+
+
+# --- модели (группировка каталога) ---
+
+
+def list_models(db: Session, client_id: str, *, search: str | None = None) -> ModelsOut:
+    """Сгруппировать карточки по модели (name): вариации одного товара вместе."""
+    rows = repo.model_status_rows(db, client_id, search=search)
+    groups: dict[str, ModelGroupOut] = {}
+    for name, category_code, status, n in rows:
+        key = name or "—"
+        g = groups.get(key)
+        if g is None:
+            g = ModelGroupOut(name=key, category_code=category_code, total=0, counts={})
+            groups[key] = g
+        if category_code and not g.category_code:
+            g.category_code = category_code
+        g.total += n
+        g.counts[status] = g.counts.get(status, 0) + n
+    items = sorted(groups.values(), key=lambda x: x.name.lower())
+    return ModelsOut(items=items)
 
 
 def _commit(db: Session, conflict_message: str) -> None:

@@ -71,3 +71,26 @@ class BuildFromVariationsIn(BaseModel):
 class BuildFromVariationsOut(BaseModel):
     created: int
     cards: list[CardOut]
+
+
+# --- массовая валидация ---
+
+
+class ValidateAllOut(BaseModel):
+    validated: int  # сколько карточек прогнали
+    valid: int  # сколько теперь валидных (всего у клиента)
+    error: int  # сколько теперь с ошибками (всего у клиента)
+
+
+# --- группировка по модели ---
+
+
+class ModelGroupOut(BaseModel):
+    name: str  # наименование модели (товара)
+    category_code: str | None = None
+    total: int
+    counts: dict[str, int] = Field(default_factory=dict)  # статус -> количество
+
+
+class ModelsOut(BaseModel):
+    items: list[ModelGroupOut]
