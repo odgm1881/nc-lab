@@ -78,11 +78,44 @@ h1 { letter-spacing: -0.03em; }
 
 ::selection { background: var(--accent-soft); color: var(--accent-strong); }
 
-/* --- тактильная отдача: мгновенный отклик на нажатие (apple §1, emil) --- */
-.ant-btn { transition: transform 120ms var(--ease-out), background-color 160ms var(--ease-out),
-  border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out) !important; }
-.ant-btn:active { transform: scale(0.97); }
-.tap:active { transform: scale(0.97); }
+/* --- тактильная отдача: явный отклик на нажатие (apple §1, emil) --- */
+.ant-btn {
+  transition:
+    transform 110ms var(--ease-out),
+    filter 110ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    box-shadow 130ms var(--ease-out) !important;
+}
+/* Нажатие: заметное продавливание — уменьшение, лёгкий сдвиг вниз, затемнение и
+   внутренняя тень (кнопка «вжимается»). */
+.ant-btn:active {
+  transform: scale(0.94) translateY(1px);
+  filter: brightness(0.9);
+  box-shadow: inset 0 2px 7px rgba(15, 23, 42, 0.22) !important;
+}
+/* Первичная (teal) кнопка при нажатии заметно темнеет. */
+.ant-btn-primary:active {
+  filter: brightness(0.85) saturate(1.1);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+}
+/* Кастомные кликабельные элементы (навигация, тайлы, карточки-ссылки). */
+.tap {
+  transition: transform 110ms var(--ease-out), filter 110ms var(--ease-out);
+}
+.tap:active {
+  transform: scale(0.94) translateY(1px);
+  filter: brightness(0.93);
+}
+.lift:active {
+  transform: scale(0.98) translateY(0);
+}
+
+/* Явное кольцо фокуса с клавиатуры на кнопках. */
+.ant-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.3) !important;
+}
 
 /* --- вход контента: rise (opacity + подъём), со стаггером через --i --- */
 @keyframes rise {
