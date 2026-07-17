@@ -1,11 +1,12 @@
-import { ArrowLeftOutlined } from '@ant-design/icons'
-import { App, Button, Card, Col, Divider, Form, Input, Row, Select, Space } from 'antd'
+import { ArrowLeftOutlined, CheckCircleFilled } from '@ant-design/icons'
+import { App, Button, Card, Col, Form, Input, Row, Select } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
 import { getCard, publishCard, updateCard, validateCard } from '../api/endpoints'
 import { IssueList } from '../components/IssueList'
+import { SectionLabel } from '../components/SectionLabel'
 import { StatusTag } from '../components/StatusTag'
 import type { Card as CardType } from '../types'
 
@@ -43,8 +44,6 @@ export function CardDetailPage() {
     load().catch((e) => message.error(errorMessage(e)))
   }, [load, message])
 
-  // Заполняем форму после того, как карточка загружена и Form смонтирована
-  // (иначе AntD ругается «useForm is not connected to any Form element»).
   useEffect(() => {
     if (!card) return
     form.setFieldsValue({
@@ -87,7 +86,6 @@ export function CardDetailPage() {
     try {
       setCard(await updateCard(id, collect() as Partial<CardType>))
       message.success('Сохранено (статус сброшен в черновик)')
-      void load()
     } catch (e) {
       message.error(errorMessage(e))
     } finally {
@@ -126,6 +124,15 @@ export function CardDetailPage() {
 
   if (!card) return null
 
+  // Связь панели валидации с полями: подсвечиваем поля, по которым есть ошибки.
+  const errorFields = new Set(
+    card.validation_issues.filter((i) => i.severity === 'error').map((i) => i.field ?? ''),
+  )
+  const rdMissing = errorFields.has('rd_data')
+  const attrStatus = (k: string) => (errorFields.has(k) ? 'error' : undefined)
+  const rdStatus = (k: string) => (rdMissing || errorFields.has(`rd_data.${k}`) ? 'error' : undefined)
+  const errorCount = card.validation_issues.filter((i) => i.severity === 'error').length
+
   return (
     <div>
       <Button
@@ -145,9 +152,9 @@ export function CardDetailPage() {
 
       <Row gutter={16}>
         <Col xs={24} lg={15}>
-          <Card title="Карточка">
-            <Form form={form} layout="vertical">
-              <Row gutter={12}>
+          <Card title="Карточка" styles={{ body: { paddingBottom: 0 } }}>
+            <Form form={form} layout="vertical" requiredMark={false}>
+              <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item name="name" label="Наименование">
                     <Input />
@@ -159,75 +166,108 @@ export function CardDetailPage() {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="category_code" label="Категория (ТН ВЭД)">
+                  <Form.Item name="category_code" label="Категория (ТН ВЭД)" validateStatus={attrStatus('category_code')}>
                     <Input placeholder="6109" />
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="gtin" label="GTIN" tooltip="Необратим. Проверяется до заказа кодов.">
-                    <Input placeholder="4600000000015" />
+                  <Form.Item
+                    name="gtin"
+                    label="GTIN"
+                    tooltip="Необратим. Проверяется до заказа кодов."
+                    validateStatus={errorFields.has('gtin') ? 'error' : undefined}
+                  >
+                    <Input placeholder="4600000000015" style={{ fontFamily: 'var(--font-mono)' }} />
                   </Form.Item>
                 </Col>
               </Row>
 
-              <Divider>Атрибуты категории</Divider>
-              <Row gutter={12}>
+              <SectionLabel hint="Обязательны для одежды">Атрибуты категории</SectionLabel>
+              <Row gutter={16}>
                 {ATTR_FIELDS.map(([k, label]) => (
                   <Col span={12} key={k}>
-                    <Form.Item name={`attr_${k}`} label={label}>
+                    <Form.Item name={`attr_${k}`} label={label} validateStatus={attrStatus(k)}>
                       <Input />
                     </Form.Item>
                   </Col>
                 ))}
               </Row>
 
-              <Divider>Разрешительная документация (РД)</Divider>
-              <Row gutter={12}>
+              <SectionLabel hint="Проверяется до заказа кодов">Разрешительная документация</SectionLabel>
+              <Row gutter={16}>
                 <Col span={12}>
-                  <Form.Item name="rd_type" label="Тип">
+                  <Form.Item name="rd_type" label="Тип" validateStatus={rdStatus('type')}>
                     <Select allowClear options={RD_TYPES} placeholder="Выберите тип" />
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="rd_number" label="Номер">
+                  <Form.Item name="rd_number" label="Номер" validateStatus={rdStatus('number')}>
                     <Input />
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="rd_date" label="Дата (ГГГГ-ММ-ДД)">
+                  <Form.Item name="rd_date" label="Дата (ГГГГ-ММ-ДД)" validateStatus={rdStatus('date')}>
                     <Input placeholder="2026-02-01" />
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="rd_valid_until" label="Действует до (ГГГГ-ММ-ДД)">
+                  <Form.Item name="rd_valid_until" label="Действует до (ГГГГ-ММ-ДД)" validateStatus={rdStatus('valid_until')}>
                     <Input placeholder="2029-02-01" />
                   </Form.Item>
                 </Col>
               </Row>
-
-              <Space>
-                <Button onClick={onSave} loading={busy}>
-                  Сохранить
-                </Button>
-                <Button type="primary" onClick={onValidate} loading={busy}>
-                  Сохранить и валидировать
-                </Button>
-                <Button
-                  onClick={onPublish}
-                  loading={busy}
-                  disabled={card.status !== 'valid'}
-                >
-                  Опубликовать в НК
-                </Button>
-              </Space>
             </Form>
+
+            {/* Нижняя панель действий */}
+            <div
+              style={{
+                display: 'flex',
+                gap: 10,
+                flexWrap: 'wrap',
+                margin: '4px -22px 0',
+                padding: '16px 22px',
+                borderTop: '1px solid var(--hairline)',
+                background: 'var(--surface-2)',
+                borderBottomLeftRadius: 'var(--r-lg)',
+                borderBottomRightRadius: 'var(--r-lg)',
+              }}
+            >
+              <Button onClick={onSave} loading={busy}>
+                Сохранить
+              </Button>
+              <Button type="primary" onClick={onValidate} loading={busy}>
+                Сохранить и валидировать
+              </Button>
+              <Button onClick={onPublish} loading={busy} disabled={card.status !== 'valid'}>
+                Опубликовать в НК
+              </Button>
+            </div>
           </Card>
         </Col>
 
         <Col xs={24} lg={9}>
-          <Card title="Результат валидации">
-            <IssueList issues={card.validation_issues} />
-          </Card>
+          <div style={{ position: 'sticky', top: 16 }}>
+            <Card
+              title={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span>Результат валидации</span>
+                  {errorCount > 0 ? (
+                    <span className="pill pill--error">{errorCount}</span>
+                  ) : (
+                    <CheckCircleFilled style={{ color: 'var(--success)' }} />
+                  )}
+                </div>
+              }
+            >
+              <IssueList issues={card.validation_issues} />
+              {errorCount > 0 && (
+                <p style={{ marginTop: 14, marginBottom: 0, fontSize: 12.5, color: 'var(--muted)' }}>
+                  Поля с ошибками подсвечены в форме слева. Исправьте и нажмите «Сохранить и
+                  валидировать».
+                </p>
+              )}
+            </Card>
+          </div>
         </Col>
       </Row>
     </div>

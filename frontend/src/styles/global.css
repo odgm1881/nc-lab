@@ -229,12 +229,19 @@ h1 { letter-spacing: -0.03em; }
 .ant-segmented { padding: 3px; background: var(--bg-sunken); }
 .ant-segmented-item-selected { box-shadow: var(--shadow-xs); font-weight: 600; }
 
-/* Поля ввода: мягкий фокус в бренд-цвете. */
-.ant-input, .ant-input-affix-wrapper, .ant-select-selector {
-  border-color: var(--hairline) !important;
+/* Область загрузки файла: пунктирный хайрлайн, hover — в бренд-акцент. */
+.ant-upload-wrapper .ant-upload-drag {
+  border: 1.5px dashed #cbd5e1 !important;
+  background: var(--surface-2) !important;
+  border-radius: var(--r-lg) !important;
+  transition: border-color 180ms var(--ease-out), background 180ms var(--ease-out) !important;
 }
-.ant-input:hover, .ant-input-affix-wrapper:hover, .ant-select-selector:hover {
-  border-color: #cbd5e1 !important;
+.ant-upload-wrapper .ant-upload-drag:hover {
+  border-color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+}
+.ant-upload-drag .ant-upload-drag-icon .anticon {
+  color: var(--accent) !important;
 }
 
 /* Дотнутая «сетка каталога» на рабочей области — ощущение точного инструмента. */
