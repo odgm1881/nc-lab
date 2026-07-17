@@ -72,6 +72,19 @@ export function LoginPage() {
             filter: 'blur(20px)',
           }}
         />
+        {/* тонкая техническая сетка, растворяющаяся к краям */}
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage:
+              'linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)',
+            backgroundSize: '44px 44px',
+            WebkitMaskImage: 'radial-gradient(circle at 28% 42%, #000 0%, transparent 78%)',
+            maskImage: 'radial-gradient(circle at 28% 42%, #000 0%, transparent 78%)',
+          }}
+        />
         <Brand dark size={34} />
 
         <div style={{ position: 'relative', maxWidth: 460 }}>

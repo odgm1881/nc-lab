@@ -64,9 +64,15 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  /* Многослойная подложка: тёплое teal-свечение сверху-справа + база. Не плоская. */
+  background:
+    radial-gradient(1100px 520px at 108% -8%, rgba(20, 184, 166, 0.055), transparent 62%),
+    radial-gradient(900px 500px at -10% 0%, rgba(37, 99, 235, 0.03), transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -75,6 +81,18 @@ body {
 /* размерная типографика: крупное — с отрицательным трекингом (apple §15) */
 h1, h2, h3, h4 { color: var(--ink); font-weight: 650; letter-spacing: -0.02em; }
 h1 { letter-spacing: -0.03em; }
+
+/* числа — табличные во всём интерфейсе (ровные колонки цифр) */
+.num, .ant-statistic-content-value, .ant-table-tbody td { font-variant-numeric: tabular-nums; }
+
+/* мелкий трекованный лейбл-«бровь» */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
 
 ::selection { background: var(--accent-soft); color: var(--accent-strong); }
 
@@ -162,15 +180,69 @@ h1 { letter-spacing: -0.03em; }
 *::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
 
 /* --- AntD доводка --- */
-.ant-card { box-shadow: var(--shadow-sm); }
+
+/* Кнопки: первичная с лёгким вертикальным градиентом и верхним бликом (материал),
+   вторичная — чистая на поверхности с аккуратной границей. */
+.ant-btn-primary:not(:disabled) {
+  background: linear-gradient(180deg, #12857a, #0f766e) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), var(--shadow-xs) !important;
+}
+.ant-btn-primary:not(:disabled):hover {
+  background: linear-gradient(180deg, #159a8c, #108074) !important;
+}
+.ant-btn-default:not(:disabled) {
+  background: var(--surface) !important;
+  border-color: var(--hairline) !important;
+  color: var(--text) !important;
+}
+.ant-btn-default:not(:disabled):hover {
+  border-color: #cbd5e1 !important;
+  color: var(--accent-strong) !important;
+}
+
+/* Карточки: хайрлайн-граница + мягкая тень, аккуратная шапка. */
+.ant-card {
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-sm);
+}
+.ant-card-head {
+  border-bottom: 1px solid var(--hairline);
+  min-height: 52px;
+}
+.ant-card-head-title { font-weight: 650; letter-spacing: -0.01em; color: var(--ink); }
+
+/* Таблицы: спокойная шапка, хайрлайн-разделители, мягкий hover строки. */
 .ant-table-thead > tr > th {
   background: var(--surface-2) !important;
   color: var(--muted) !important;
   font-weight: 600 !important;
-  font-size: 12px; letter-spacing: 0.02em;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--hairline) !important;
 }
+.ant-table-tbody > tr > td { border-bottom: 1px solid var(--hairline) !important; }
 .ant-table-tbody > tr { transition: background-color 140ms var(--ease-out); }
 .ant-statistic-content { font-variant-numeric: tabular-nums; }
+
+/* Сегмент-контрол: аккуратный выделенный элемент. */
+.ant-segmented { padding: 3px; background: var(--bg-sunken); }
+.ant-segmented-item-selected { box-shadow: var(--shadow-xs); font-weight: 600; }
+
+/* Поля ввода: мягкий фокус в бренд-цвете. */
+.ant-input, .ant-input-affix-wrapper, .ant-select-selector {
+  border-color: var(--hairline) !important;
+}
+.ant-input:hover, .ant-input-affix-wrapper:hover, .ant-select-selector:hover {
+  border-color: #cbd5e1 !important;
+}
+
+/* Дотнутая «сетка каталога» на рабочей области — ощущение точного инструмента. */
+.app-canvas {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.032) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: -1px -1px;
+}
 
 /* фокус-кольцо в бренд-цвете */
 :where(.ant-btn, .ant-input, .ant-input-affix-wrapper, .ant-select-selector):focus-visible,

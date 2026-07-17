@@ -61,8 +61,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
           gap: 4,
         }}
       >
-        <div style={{ padding: '6px 10px 18px' }}>
+        <div style={{ padding: '6px 10px 20px' }}>
           <Brand dark />
+        </div>
+
+        <div
+          className="eyebrow"
+          style={{ padding: '0 12px 8px', color: 'rgba(147,161,181,0.7)' }}
+        >
+          Навигация
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -85,6 +92,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   fontWeight: on ? 600 : 500,
                   color: on ? '#5eead4' : 'var(--side-muted)',
                   background: on ? 'var(--side-active)' : 'transparent',
+                  boxShadow: on ? 'inset 3px 0 0 #14b8a6' : 'none',
                   transition: 'background 160ms var(--ease-out), color 160ms var(--ease-out)',
                   textAlign: 'left',
                 }}
@@ -180,7 +188,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </Dropdown>
         </header>
 
-        <main id="content-scroll" style={{ overflow: 'auto', flex: 1 }}>
+        <main id="content-scroll" className="app-canvas" style={{ overflow: 'auto', flex: 1 }}>
           <div key={location.pathname} className="rise" style={{ maxWidth: 1240, margin: '0 auto', padding: '28px' }}>
             {children}
           </div>

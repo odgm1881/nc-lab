@@ -8,7 +8,7 @@ import {
   ProfileOutlined,
   SendOutlined,
 } from '@ant-design/icons'
-import { Card, Progress, Skeleton } from 'antd'
+import { Card, Skeleton } from 'antd'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -33,8 +33,8 @@ const TILES: Tile[] = [
 ]
 
 const STEPS: { key: CardStatus; label: string; color: string }[] = [
-  { key: 'draft', label: 'Черновик', color: '#94a3b8' },
   { key: 'error', label: 'Ошибки', color: '#e11d48' },
+  { key: 'draft', label: 'Черновики', color: '#94a3b8' },
   { key: 'valid', label: 'Валидны', color: '#16a34a' },
   { key: 'published', label: 'Опубликованы', color: '#0f766e' },
 ]
@@ -100,36 +100,49 @@ export function DashboardPage() {
             className="lift tap"
             onClick={() => navigate(t.key === 'all' ? '/catalog' : `/catalog?status=${t.key}`)}
             style={{
+              position: 'relative',
               background: 'var(--surface)',
               border: '1px solid var(--hairline)',
               borderRadius: 'var(--r-lg)',
-              padding: 18,
+              padding: '18px 18px 18px 20px',
               cursor: 'pointer',
-              boxShadow: 'var(--shadow-sm)',
+              boxShadow: `var(--shadow-sm), inset 3px 0 0 ${t.color}`,
+              overflow: 'hidden',
             }}
           >
             <div
               style={{
-                width: 38,
-                height: 38,
-                borderRadius: 'var(--r-md)',
-                background: t.tint,
-                color: t.color,
-                display: 'grid',
-                placeItems: 'center',
-                fontSize: 18,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 marginBottom: 14,
               }}
             >
-              {t.icon}
+              <span style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 500 }}>{t.label}</span>
+              <span
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 'var(--r-md)',
+                  background: t.tint,
+                  color: t.color,
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 16,
+                }}
+              >
+                {t.icon}
+              </span>
             </div>
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t.label}</div>
             {counts ? (
-              <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+              <div
+                className="num"
+                style={{ fontSize: 30, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1, letterSpacing: '-0.02em' }}
+              >
                 {t.key === 'all' ? total : counts[t.key] ?? 0}
               </div>
             ) : (
-              <Skeleton.Button active size="small" style={{ width: 48, height: 30, marginTop: 4 }} />
+              <Skeleton.Button active size="small" style={{ width: 48, height: 30 }} />
             )}
           </div>
         ))}
@@ -142,31 +155,36 @@ export function DashboardPage() {
             <span style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)' }}>{readyPct}%</span>
             <span style={{ color: 'var(--muted)', fontSize: 14 }}>карточек готовы или опубликованы</span>
           </div>
-          <Progress
-            percent={readyPct}
-            showInfo={false}
-            strokeColor={{ from: '#14b8a6', to: '#0f766e' }}
-            railColor="#eef1f5"
-          />
-          <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-            {STEPS.map((s) => (
+          {/* Пропорциональная составная шкала статусов каталога */}
+          <div
+            style={{
+              display: 'flex',
+              height: 12,
+              borderRadius: 999,
+              overflow: 'hidden',
+              background: '#eef1f5',
+              marginTop: 10,
+              boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.04)',
+            }}
+          >
+            {STEPS.filter((s) => (counts?.[s.key] ?? 0) > 0).map((s) => (
               <div
                 key={s.key}
-                style={{
-                  flex: '1 1 120px',
-                  border: '1px solid var(--hairline)',
-                  borderRadius: 'var(--r-md)',
-                  padding: '12px 14px',
-                  background: 'var(--surface-2)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color }} />
-                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.label}</span>
-                </div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
+                title={`${s.label}: ${counts?.[s.key] ?? 0}`}
+                style={{ flex: `${counts?.[s.key] ?? 0} 0 0`, minWidth: 6, background: s.color }}
+              />
+            ))}
+          </div>
+
+          {/* Легенда с counts */}
+          <div style={{ display: 'flex', gap: 20, marginTop: 18, flexWrap: 'wrap' }}>
+            {STEPS.map((s) => (
+              <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 9, height: 9, borderRadius: 3, background: s.color }} />
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.label}</span>
+                <b className="num" style={{ fontSize: 14, color: 'var(--ink)' }}>
                   {counts ? counts[s.key] ?? 0 : '—'}
-                </div>
+                </b>
               </div>
             ))}
           </div>
