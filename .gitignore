@@ -26,3 +26,7 @@ dist/
 
 # TS build info
 *.tsbuildinfo
+
+# Локальное файловое хранилище (импорт/этикетки)
+backend/var/
+var/storage/
