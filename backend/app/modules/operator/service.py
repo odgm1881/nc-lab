@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import DomainError, NotFoundError
+from app.modules.catalog import service as catalog_service
 from app.modules.operator.models import (
     STATUS_IN_PROGRESS,
     STATUS_OPEN,
@@ -23,6 +24,8 @@ _ALLOWED_STATUSES = {STATUS_OPEN, STATUS_IN_PROGRESS, STATUS_RESOLVED}
 
 
 def create_task(db: Session, client_id: str, data: TaskCreateIn) -> TaskOut:
+    # Проверяем владение через публичный сервис каталога, не обращаясь к его таблице.
+    catalog_service.get_card(db, client_id, data.card_id)
     task = OperatorTask(
         client_id=client_id,
         card_id=data.card_id,

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.types import JSONBType
 from app.database import Base
 
-# Статусы карточки: draft → validating → valid | error → published.
+# published — историческое имя внутреннего статуса «готова к публикации», не внешний обмен.
 STATUS_DRAFT = "draft"
 STATUS_VALIDATING = "validating"
 STATUS_VALID = "valid"

@@ -1,4 +1,4 @@
-"""Сценарии каталога: CRUD карточек, валидация, публикация, построение из вариаций.
+"""Сценарии каталога: CRUD, валидация, готовность к публикации, вариации.
 
 Здесь оркестрация и транзакции. Доменные правила берём из модуля validation
 (реестр правил), логику вариаций — из модуля variations. Каталог не лезет в чужие
@@ -6,7 +6,7 @@
 
 Чтобы уменьшить ручную работу:
 - карточки автоматически валидируются сразу после импорта и построения вариаций;
-- есть массовая валидация всех неопубликованных карточек (validate_all);
+- есть массовая валидация всех не отмеченных готовыми карточек (validate_all);
 - каталог группируется по модели (name) — вариации одного товара не смешиваются.
 """
 
@@ -160,7 +160,7 @@ def list_cards(
 def update_card(db: Session, client_id: str, card_id: str, data: CardUpdateIn) -> CardOut:
     card = _require(db, client_id, card_id)
     if card.status == STATUS_PUBLISHED:
-        raise ConflictError("Опубликованную карточку нельзя редактировать.")
+        raise ConflictError("Карточку, готовую к публикации, нельзя редактировать.")
 
     if data.name is not None:
         card.name = data.name
@@ -199,7 +199,7 @@ def validate_card(db: Session, client_id: str, card_id: str) -> CardValidateOut:
 
 
 def validate_all(db: Session, client_id: str) -> ValidateAllOut:
-    """Массовая валидация всех неопубликованных карточек одним нажатием."""
+    """Массовая валидация всех карточек, ещё не отмеченных готовыми."""
     cards = repo.list_unpublished(db, client_id)
     _validate_many(db, client_id, cards)
     db.commit()
@@ -211,18 +211,23 @@ def validate_all(db: Session, client_id: str) -> ValidateAllOut:
     )
 
 
-def publish_card(db: Session, client_id: str, card_id: str) -> CardOut:
-    """Публикация в НК (имитация). Разрешена только для валидной карточки."""
+def mark_ready(db: Session, client_id: str, card_id: str) -> CardOut:
+    """Отметить внутреннюю готовность; внешнего обмена с НК здесь нет."""
     card = _require(db, client_id, card_id)
     if card.status != STATUS_VALID:
         raise DomainError(
-            "Опубликовать можно только валидную карточку. Сначала пройдите валидацию.",
+            "Готовой к публикации можно отметить только валидную карточку.",
             code="NOT_VALID",
         )
     card.status = STATUS_PUBLISHED
     db.commit()
     db.refresh(card)
     return _to_out(card)
+
+
+def publish_card(db: Session, client_id: str, card_id: str) -> CardOut:
+    """Обратная совместимость старого API; действие только внутреннее."""
+    return mark_ready(db, client_id, card_id)
 
 
 def build_from_variations(

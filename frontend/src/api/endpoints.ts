@@ -57,8 +57,8 @@ export const deleteCard = (id: string) => api.delete(`/cards/${id}`).then((r) =>
 export const validateCard = (id: string) =>
   api.post<CardValidateResponse>(`/cards/${id}/validate`).then((r) => r.data)
 
-export const publishCard = (id: string) =>
-  api.post<Card>(`/cards/${id}/publish`).then((r) => r.data)
+export const markCardReady = (id: string) =>
+  api.post<Card>(`/cards/${id}/ready`).then((r) => r.data)
 
 export const buildFromVariations = (payload: {
   name: string

@@ -5,7 +5,7 @@ const LABEL: Record<CardStatus, string> = {
   validating: 'Валидация',
   valid: 'Валидна',
   error: 'Ошибки',
-  published: 'Опубликована',
+  published: 'Готова к публикации',
 }
 
 // Мягкая статус-пилюля (фон-тинт + цветной текст + точка). Класс .pill в global.css.

@@ -36,6 +36,11 @@ class AuthError(DomainError):
     code = "AUTH_ERROR"
 
 
+class PayloadTooLargeError(DomainError):
+    status_code = 413
+    code = "PAYLOAD_TOO_LARGE"
+
+
 class ValidationFailedError(DomainError):
     """Карточка не прошла валидацию — бизнес-правила, не Pydantic."""
 

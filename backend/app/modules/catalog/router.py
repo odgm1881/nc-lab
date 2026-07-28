@@ -67,7 +67,7 @@ def validate_all(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ValidateAllOut:
-    """Провалидировать все неопубликованные карточки одним нажатием."""
+    """Провалидировать все карточки, ещё не отмеченные готовыми."""
     return service.validate_all(db, _client_id(user))
 
 
@@ -126,10 +126,21 @@ def validate_card(
     return service.validate_card(db, _client_id(user), card_id)
 
 
-@router.post("/{card_id}/publish", response_model=CardOut)
+@router.post("/{card_id}/ready", response_model=CardOut)
+def mark_ready(
+    card_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> CardOut:
+    """Отметить карточку готовой к публикации без внешнего обмена."""
+    return service.mark_ready(db, _client_id(user), card_id)
+
+
+@router.post("/{card_id}/publish", response_model=CardOut, include_in_schema=False)
 def publish_card(
     card_id: str,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> CardOut:
+    """Устаревший маршрут для совместимости; внешней публикации не выполняет."""
     return service.publish_card(db, _client_id(user), card_id)

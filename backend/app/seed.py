@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+from app.config import settings
 from app.core.security import hash_password
 from app.database import Base, SessionLocal, engine
 from app.modules.auth import repository as auth_repo
@@ -24,6 +25,10 @@ from app.modules.operator import models as _operator  # noqa: F401
 
 
 def run() -> None:
+    if not settings.demo_accounts_enabled:
+        raise RuntimeError(
+            "Создание демо-аккаунтов отключено настройкой DEMO_ACCOUNTS_ENABLED."
+        )
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:

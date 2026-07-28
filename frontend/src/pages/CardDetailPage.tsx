@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
-import { getCard, publishCard, updateCard, validateCard } from '../api/endpoints'
+import { getCard, markCardReady, updateCard, validateCard } from '../api/endpoints'
 import { IssueList } from '../components/IssueList'
 import { SectionLabel } from '../components/SectionLabel'
 import { StatusTag } from '../components/StatusTag'
@@ -109,12 +109,12 @@ export function CardDetailPage() {
     }
   }
 
-  const onPublish = async () => {
+  const onMarkReady = async () => {
     if (!id) return
     setBusy(true)
     try {
-      setCard(await publishCard(id))
-      message.success('Опубликовано в НК')
+      setCard(await markCardReady(id))
+      message.success('Карточка готова к публикации')
     } catch (e) {
       message.error(errorMessage(e))
     } finally {
@@ -238,8 +238,8 @@ export function CardDetailPage() {
               <Button type="primary" onClick={onValidate} loading={busy}>
                 Сохранить и валидировать
               </Button>
-              <Button onClick={onPublish} loading={busy} disabled={card.status !== 'valid'}>
-                Опубликовать в НК
+              <Button onClick={onMarkReady} loading={busy} disabled={card.status !== 'valid'}>
+                Готово к публикации
               </Button>
             </div>
           </Card>

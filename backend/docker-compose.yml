@@ -16,13 +16,15 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
 
   api:
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg://nklab:password@db:5432/nklab
       JWT_SECRET: ${JWT_SECRET:-change-me}
-      APP_ENV: production
+      APP_ENV: development
+      DEMO_ACCOUNTS_ENABLED: "true"
     depends_on:
       db:
         condition: service_healthy
@@ -33,6 +35,12 @@ services:
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/ready')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
   web:
     build: ../frontend
@@ -40,6 +48,7 @@ services:
       - api
     ports:
       - "8080:80"
+    restart: unless-stopped
 
 volumes:
   pgdata:

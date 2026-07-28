@@ -51,7 +51,7 @@ def list_cards(
 
 
 def list_unpublished(db: Session, client_id: str) -> list[Card]:
-    """Все карточки клиента, кроме опубликованных — для массовой валидации."""
+    """Все карточки клиента, кроме отмеченных готовыми — для массовой валидации."""
     stmt = select(Card).where(Card.client_id == client_id, Card.status != STATUS_PUBLISHED)
     return list(db.scalars(stmt))
 

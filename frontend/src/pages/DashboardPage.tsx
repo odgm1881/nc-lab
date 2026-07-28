@@ -29,14 +29,14 @@ const TILES: Tile[] = [
   { key: 'draft', label: 'Черновики', icon: <ProfileOutlined />, color: '#475569', tint: '#eef1f5' },
   { key: 'error', label: 'С ошибками', icon: <CloseCircleFilled />, color: '#e11d48', tint: 'var(--error-soft)' },
   { key: 'valid', label: 'Валидны', icon: <CheckCircleFilled />, color: '#16a34a', tint: 'var(--success-soft)' },
-  { key: 'published', label: 'Опубликованы', icon: <SendOutlined />, color: '#0f766e', tint: 'var(--accent-soft)' },
+  { key: 'published', label: 'Готовы к публикации', icon: <SendOutlined />, color: '#0f766e', tint: 'var(--accent-soft)' },
 ]
 
 const STEPS: { key: CardStatus; label: string; color: string }[] = [
   { key: 'error', label: 'Ошибки', color: '#e11d48' },
   { key: 'draft', label: 'Черновики', color: '#94a3b8' },
   { key: 'valid', label: 'Валидны', color: '#16a34a' },
-  { key: 'published', label: 'Опубликованы', color: '#0f766e' },
+  { key: 'published', label: 'Готовы к публикации', color: '#0f766e' },
 ]
 
 const QUICK = [
@@ -55,8 +55,8 @@ const QUICK = [
   {
     to: '/catalog',
     icon: <ProfileOutlined />,
-    title: 'Проверить и опубликовать',
-    desc: 'Заполните GTIN и РД, прогоните валидацию, опубликуйте в НК.',
+    title: 'Проверить и подготовить',
+    desc: 'Заполните GTIN и РД, прогоните валидацию, отметьте готовность к публикации.',
   },
 ]
 
@@ -81,7 +81,7 @@ export function DashboardPage() {
     <div>
       <PageHeader
         title="Обзор каталога"
-        subtitle="Цепочка НК → GTIN → РД → коды. Задача — довести карточки до статуса «Валидна» и опубликовать до заказа кодов маркировки."
+        subtitle="Цепочка НК → GTIN → РД → коды. Задача — довести карточки до внутреннего статуса «Готова к публикации» до заказа кодов маркировки."
       />
 
       {/* --- стат-тайлы --- */}
@@ -153,7 +153,7 @@ export function DashboardPage() {
         <Card title="Конвейер готовности" styles={{ body: { paddingTop: 18 } }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
             <span style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)' }}>{readyPct}%</span>
-            <span style={{ color: 'var(--muted)', fontSize: 14 }}>карточек готовы или опубликованы</span>
+            <span style={{ color: 'var(--muted)', fontSize: 14 }}>карточек валидны или готовы к публикации</span>
           </div>
           {/* Пропорциональная составная шкала статусов каталога */}
           <div

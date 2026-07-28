@@ -5,11 +5,14 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.config import settings
 from app.core.exceptions import register_exception_handlers
+from app.core.observability import configure_logging, register_request_logging
+from app.database import SessionLocal
 
 
 def _create_tables_for_sqlite() -> None:
@@ -36,9 +39,11 @@ async def lifespan(_: FastAPI):
     yield
 
 
+configure_logging()
+
 app = FastAPI(
     title="НК-ЛАБ API",
-    version="0.1.0",
+    version=settings.app_version,
     description=(
         "Платформа подготовки и валидации карточек товаров для Национального каталога "
         "и маркировки. Валидация карточек, вариаций, GTIN и РД до заказа кодов."
@@ -46,21 +51,37 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS для дев-кабинета на Vite. В проде — ограничить домены.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 register_exception_handlers(app)
+register_request_logging(app)
 
 
-@app.get("/api/health", tags=["health"])
-def health() -> dict:
-    return {"status": "ok", "env": settings.app_env}
+@app.get("/api/health/live", tags=["health"])
+def liveness() -> dict:
+    return {"status": "ok", "env": settings.app_env, "version": settings.app_version}
+
+
+@app.get("/api/health/ready", tags=["health"])
+def readiness() -> dict:
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="database unavailable") from exc
+    return {"status": "ready", "version": settings.app_version}
+
+
+@app.get("/api/health", tags=["health"], include_in_schema=False)
+def health_compatibility() -> dict:
+    """Совместимость со старым health endpoint."""
+    return liveness()
 
 
 # --- подключение роутеров модулей ---

@@ -1,4 +1,4 @@
-"""Интеграционные тесты полного цикла карточки: создание → валидация → публикация."""
+"""Интеграционные тесты: создание → валидация → готовность к публикации."""
 
 from fastapi.testclient import TestClient
 
@@ -37,7 +37,7 @@ def test_create_validate_publish(auth_client: TestClient):
     assert body["result"]["is_valid"] is True
     assert body["card"]["status"] == "valid"
 
-    r = auth_client.post(f"/api/cards/{card_id}/publish")
+    r = auth_client.post(f"/api/cards/{card_id}/ready")
     assert r.status_code == 200
     assert r.json()["status"] == "published"
 
@@ -46,7 +46,7 @@ def test_publish_requires_valid(auth_client: TestClient):
     broken = dict(VALID_CARD, gtin="123", rd_data={})
     card_id = auth_client.post("/api/cards", json=broken).json()["id"]
     auth_client.post(f"/api/cards/{card_id}/validate")
-    r = auth_client.post(f"/api/cards/{card_id}/publish")
+    r = auth_client.post(f"/api/cards/{card_id}/ready")
     assert r.status_code == 400
 
 

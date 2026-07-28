@@ -14,14 +14,14 @@ const STATUS_OPTIONS = [
   { value: 'valid', label: 'Валидны' },
   { value: 'error', label: 'Ошибки' },
   { value: 'draft', label: 'Черновики' },
-  { value: 'published', label: 'Опубликованы' },
+  { value: 'published', label: 'Готовы к публикации' },
 ]
 
 const COUNT_META: Record<string, { color: string; label: string }> = {
   valid: { color: 'var(--success)', label: 'валидны' },
   error: { color: 'var(--error)', label: 'ошибки' },
   draft: { color: '#64748b', label: 'черновики' },
-  published: { color: 'var(--accent)', label: 'опубл.' },
+  published: { color: 'var(--accent)', label: 'готово' },
   validating: { color: 'var(--info)', label: 'валидация' },
 }
 

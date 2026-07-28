@@ -10,6 +10,8 @@ __pycache__/
 # Секреты и окружение
 .env
 .env.local
+.env.*
+!.env.example
 
 # Node / фронтенд
 node_modules/
