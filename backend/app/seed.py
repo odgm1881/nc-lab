@@ -13,6 +13,7 @@ from __future__ import annotations
 from app.config import settings
 from app.core.security import hash_password
 from app.database import Base, SessionLocal, engine
+from app.modules.audit import models as _audit  # noqa: F401
 from app.modules.auth import repository as auth_repo
 from app.modules.auth.models import ROLE_CLIENT, ROLE_OPERATOR, Client, User
 

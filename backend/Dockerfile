@@ -6,13 +6,11 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Зависимости ставим через pip с кэшем BuildKit — повторные сборки не качают заново.
-# Список синхронен с pyproject.toml. boto3 нужен staging/production для S3.
-COPY pyproject.toml ./
-RUN --mount=type=cache,target=/root/.cache/pip pip install \
-    "fastapi[standard]>=0.115" "sqlalchemy>=2.0" alembic "pydantic-settings>=2.6" \
-    "python-jose[cryptography]>=3.3" "passlib[bcrypt]>=1.7" "python-multipart>=0.0.12" \
-    "openpyxl>=3.1" "psycopg[binary]>=3.2" "boto3>=1.35"
+# Production использует ровно те версии и hashes, которые зафиксированы uv.lock
+# и проверены CI. requirements.lock генерируется командой из первой строки файла.
+COPY requirements.lock ./
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --require-hashes --no-deps -r requirements.lock
 
 COPY . .
 

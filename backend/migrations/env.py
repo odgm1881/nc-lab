@@ -9,6 +9,7 @@ from app.config import settings
 from app.database import Base
 
 # Импортируем модели, чтобы они попали в Base.metadata.
+from app.modules.audit import models as _audit  # noqa: F401
 from app.modules.auth import models as _auth  # noqa: F401
 from app.modules.catalog import models as _catalog  # noqa: F401
 from app.modules.import_data import models as _import  # noqa: F401

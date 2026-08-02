@@ -5,7 +5,12 @@
 используя тот же реестр правил.
 """
 
-from app.modules.validation.domain.registry import active_rule_names, run_validation
+from app.modules.validation.domain.registry import (
+    REFERENCE_DATA_VERSION,
+    RULESET_VERSION,
+    active_rule_names,
+    run_validation,
+)
 from app.modules.validation.domain.result import (
     CardView,
     Issue,
@@ -31,6 +36,8 @@ def _issue_to_schema(issue: Issue) -> IssueOut:
 
 def result_to_schema(result: ValidationResult) -> ValidationResultOut:
     return ValidationResultOut(
+        ruleset_version=RULESET_VERSION,
+        reference_data_version=REFERENCE_DATA_VERSION,
         is_valid=result.is_valid,
         errors=[_issue_to_schema(i) for i in result.errors],
         warnings=[_issue_to_schema(i) for i in result.warnings],

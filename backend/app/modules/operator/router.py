@@ -4,7 +4,7 @@
 инициировать и клиент (эскалация спорной карточки).
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthError
@@ -25,8 +25,8 @@ router = APIRouter()
 @router.get("/tasks", response_model=TaskListOut)
 def list_tasks(
     status: str | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     _: User = Depends(require_operator),
 ) -> TaskListOut:
@@ -41,7 +41,7 @@ def create_task(
 ) -> TaskOut:
     if not user.client_id:
         raise AuthError("Пользователь не привязан к клиенту.")
-    return service.create_task(db, user.client_id, data)
+    return service.create_task(db, user.client_id, data, user.id)
 
 
 @router.patch("/tasks/{task_id}", response_model=TaskOut)
@@ -49,6 +49,6 @@ def update_task(
     task_id: str,
     data: TaskUpdateIn,
     db: Session = Depends(get_db),
-    _: User = Depends(require_operator),
+    user: User = Depends(require_operator),
 ) -> TaskOut:
-    return service.update_task(db, task_id, data)
+    return service.update_task(db, task_id, data, user.id)

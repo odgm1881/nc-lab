@@ -56,6 +56,13 @@ def list_unpublished(db: Session, client_id: str) -> list[Card]:
     return list(db.scalars(stmt))
 
 
+def list_by_ids(db: Session, client_id: str, ids: list[str]) -> list[Card]:
+    if not ids:
+        return []
+    stmt = select(Card).where(Card.client_id == client_id, Card.id.in_(ids))
+    return list(db.scalars(stmt))
+
+
 def status_counts(db: Session, client_id: str) -> dict[str, int]:
     stmt = (
         select(Card.status, func.count())

@@ -1,6 +1,6 @@
 """Юнит-тесты нормализации импорта: маппинг заголовков и парсер CSV."""
 
-from app.modules.import_data.parsers.base import map_row, map_rows
+from app.modules.import_data.parsers.base import SOURCE_ROW_NUMBER, map_row, map_rows
 from app.modules.import_data.parsers.csv_parser import parse_csv
 
 
@@ -46,3 +46,19 @@ def test_parse_csv_comma():
     content = b"name,vendor_code\nJumper,JMP-1\n"
     raw = parse_csv(content)
     assert raw[0]["vendor_code"] == "JMP-1"
+
+
+def test_parse_csv_ignores_extra_values_and_empty_malformed_rows():
+    content = (
+        "Наименование;Артикул;GTIN\n"
+        "\n"
+        "Футболка;A1;;лишняя колонка\n"
+        ";;;только лишняя колонка\n"
+    ).encode()
+
+    raw = parse_csv(content)
+
+    assert len(raw) == 1
+    assert raw[0]["Наименование"] == "Футболка"
+    assert raw[0]["Артикул"] == "A1"
+    assert raw[0][SOURCE_ROW_NUMBER] == 3

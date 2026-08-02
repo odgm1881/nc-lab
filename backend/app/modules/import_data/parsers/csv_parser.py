@@ -5,6 +5,8 @@ from __future__ import annotations
 import csv
 import io
 
+from app.modules.import_data.parsers.base import SOURCE_ROW_NUMBER
+
 
 def parse_csv(content: bytes, delimiter: str | None = None) -> list[dict]:
     text = _decode(content)
@@ -13,9 +15,18 @@ def parse_csv(content: bytes, delimiter: str | None = None) -> list[dict]:
     reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
     raw_rows: list[dict] = []
     for row in reader:
-        if not any((v or "").strip() for v in row.values()):
+        # DictReader помещает лишние значения строки под ключ ``None`` и
+        # возвращает их списком. Такое часто встречается в ручных выгрузках с
+        # лишним разделителем и не должно превращать импорт в HTTP 500.
+        normalized = {
+            str(key).strip(): value
+            for key, value in row.items()
+            if key is not None
+        }
+        if not any(str(value or "").strip() for value in normalized.values()):
             continue
-        raw_rows.append({(k or "").strip(): v for k, v in row.items()})
+        normalized[SOURCE_ROW_NUMBER] = reader.line_num
+        raw_rows.append(normalized)
     return raw_rows
 
 

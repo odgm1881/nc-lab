@@ -28,6 +28,11 @@ export interface Card {
   attributes: Record<string, unknown>
   rd_data: Record<string, unknown>
   validation_issues: Issue[]
+  packaging: Record<string, unknown>
+  data_source: string
+  service_comment: string | null
+  ruleset_version: string | null
+  reference_data_version: string | null
   created_at: string
   updated_at: string
 }
@@ -38,6 +43,8 @@ export interface CardList {
 }
 
 export interface ValidationResult {
+  ruleset_version: string
+  reference_data_version: string
   is_valid: boolean
   errors: Issue[]
   warnings: Issue[]
@@ -80,6 +87,43 @@ export interface ImportCommit {
   source: string
   rows_total: number
   cards_created: number
+  rows_success: number
+  rows_error: number
+}
+
+export interface ImportJob {
+  id: string
+  filename: string
+  source: string
+  status: string
+  rows_total: number
+  cards_created: number
+  rows_success: number
+  rows_error: number
+  error: string | null
+  created_at: string
+}
+
+export interface MappingProfile {
+  id: string
+  name: string
+  source: 'excel' | 'csv' | 'onec'
+  mapping: Record<string, string>
+  created_at: string
+  updated_at: string
+}
+
+export interface AuditEvent {
+  id: string
+  actor_id: string | null
+  action: string
+  entity_type: string
+  entity_id: string | null
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
+  details: Record<string, unknown>
+  correlation_id: string | null
+  created_at: string
 }
 
 export interface ModelGroup {

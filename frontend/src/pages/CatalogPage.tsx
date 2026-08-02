@@ -1,10 +1,11 @@
-import { CheckCircleOutlined, InboxOutlined, RightOutlined } from '@ant-design/icons'
-import { App, Button, Card, Empty, Input, Segmented, Space, Table, Tag } from 'antd'
+import { CheckCircleOutlined, DownloadOutlined, EditOutlined, InboxOutlined, RightOutlined } from '@ant-design/icons'
+import { App, Button, Card, Empty, Form, Input, Modal, Segmented, Select, Space, Table, Tag } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
+import type { Key } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
-import { listCards, listModels, validateAll } from '../api/endpoints'
+import { bulkUpdateCards, exportCards, listCards, listModels, validateAll } from '../api/endpoints'
 import { PageHeader } from '../components/PageHeader'
 import { StatusTag } from '../components/StatusTag'
 import type { Card as CardType, CardStatus, ModelGroup } from '../types'
@@ -57,6 +58,9 @@ export function CatalogPage() {
   const [loading, setLoading] = useState(true)
   const [validating, setValidating] = useState(false)
   const [search, setSearch] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Key[]>([])
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkForm] = Form.useForm()
   const status = params.get('status') ?? ''
 
   const loadModels = useCallback(async () => {
@@ -93,6 +97,10 @@ export function CatalogPage() {
     else void loadList()
   }, [view, loadModels, loadList])
 
+  useEffect(() => {
+    setSelectedIds([])
+  }, [view, status, modelFilter, search])
+
   const onValidateAll = async () => {
     setValidating(true)
     try {
@@ -113,6 +121,40 @@ export function CatalogPage() {
     setView('list')
   }
 
+  const onExport = async () => {
+    try {
+      const blob = await exportCards({
+        ids: selectedIds.length ? selectedIds.map(String) : undefined,
+        status: status || undefined,
+        name: modelFilter || undefined,
+        search: search || undefined,
+      })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'cards-export.csv'
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      message.error(errorMessage(e))
+    }
+  }
+
+  const onBulkUpdate = async () => {
+    try {
+      const values = await bulkForm.validateFields()
+      const result = await bulkUpdateCards({ ids: selectedIds.map(String), ...values })
+      message.success(`Обновлено карточек: ${result.updated}`)
+      setBulkOpen(false)
+      setSelectedIds([])
+      bulkForm.resetFields()
+      void loadList()
+    } catch (e) {
+      if (e && typeof e === 'object' && 'errorFields' in e) return
+      message.error(errorMessage(e))
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -123,6 +165,16 @@ export function CatalogPage() {
             <Button icon={<CheckCircleOutlined />} loading={validating} onClick={onValidateAll}>
               Провалидировать всё
             </Button>
+            {view === 'list' && (
+              <Button icon={<DownloadOutlined />} onClick={onExport}>
+                {selectedIds.length ? `Экспорт (${selectedIds.length})` : 'Экспорт'}
+              </Button>
+            )}
+            {view === 'list' && selectedIds.length > 0 && (
+              <Button icon={<EditOutlined />} onClick={() => setBulkOpen(true)}>
+                Изменить ({selectedIds.length})
+              </Button>
+            )}
             <Button type="primary" onClick={() => navigate('/variations')}>
               Создать вариации
             </Button>
@@ -228,6 +280,7 @@ export function CatalogPage() {
             rowKey="id"
             loading={loading}
             dataSource={rows}
+            rowSelection={{ selectedRowKeys: selectedIds, onChange: setSelectedIds }}
             pagination={{ pageSize: 20, hideOnSinglePage: true }}
             locale={{
               emptyText: (
@@ -285,6 +338,33 @@ export function CatalogPage() {
           />
         )}
       </Card>
+      <Modal
+        title={`Массовое редактирование — ${selectedIds.length} карточек`}
+        open={bulkOpen}
+        onCancel={() => setBulkOpen(false)}
+        onOk={onBulkUpdate}
+        okText="Применить"
+      >
+        <Form form={bulkForm} layout="vertical">
+          <Form.Item name="category_code" label="Категория ТН ВЭД">
+            <Input placeholder="Оставьте пустым, чтобы не менять" />
+          </Form.Item>
+          <Form.Item name="data_source" label="Источник данных">
+            <Select
+              allowClear
+              options={[
+                { value: 'manual', label: 'Ручной ввод' },
+                { value: 'excel', label: 'Excel' },
+                { value: 'csv', label: 'CSV' },
+                { value: 'onec', label: '1С' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="service_comment" label="Служебный комментарий">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

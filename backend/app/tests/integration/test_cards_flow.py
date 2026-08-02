@@ -78,6 +78,11 @@ def test_list_and_filter(auth_client: TestClient):
     assert r.json()["total"] == 0
 
 
+def test_list_rejects_negative_pagination(auth_client: TestClient):
+    assert auth_client.get("/api/cards", params={"limit": -1}).status_code == 422
+    assert auth_client.get("/api/cards", params={"offset": -1}).status_code == 422
+
+
 def test_update_resets_to_draft(auth_client: TestClient):
     card_id = auth_client.post("/api/cards", json=VALID_CARD).json()["id"]
     auth_client.post(f"/api/cards/{card_id}/validate")

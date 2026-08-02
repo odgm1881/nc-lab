@@ -5,12 +5,19 @@ from __future__ import annotations
 import json
 import logging
 import time
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
 
 from app.config import settings
+
+_correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
+
+
+def get_correlation_id() -> str | None:
+    return _correlation_id.get()
 
 
 class JsonFormatter(logging.Formatter):
@@ -44,6 +51,7 @@ def register_request_logging(app: FastAPI) -> None:
     @app.middleware("http")
     async def request_log_middleware(request: Request, call_next):
         correlation_id = request.headers.get("x-correlation-id") or str(uuid4())
+        token = _correlation_id.set(correlation_id)
         started = time.perf_counter()
         try:
             response = await call_next(request)
@@ -58,6 +66,8 @@ def register_request_logging(app: FastAPI) -> None:
                 },
             )
             raise
+        finally:
+            _correlation_id.reset(token)
         response.headers["x-correlation-id"] = correlation_id
         logger.info(
             "request_completed",

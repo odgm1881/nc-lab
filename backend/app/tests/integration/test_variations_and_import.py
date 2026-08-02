@@ -102,6 +102,16 @@ def test_import_preview(auth_client: TestClient):
     assert r.json()["rows"][0]["attributes"]["color"] == "чёрный"
 
 
+def test_import_preview_rejects_broken_excel_without_server_error(auth_client: TestClient):
+    response = auth_client.post(
+        "/api/import/preview",
+        files={"file": ("broken.xlsx", b"not-an-excel-file")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "IMPORT_PARSE_ERROR"
+
+
 def test_import_commit_creates_cards(auth_client: TestClient):
     files = {"file": ("nomenclature.xlsx", _xlsx_bytes())}
     r = auth_client.post("/api/import/commit", files=files, data={"create_cards": "true"})

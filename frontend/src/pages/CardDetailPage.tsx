@@ -1,14 +1,14 @@
 import { ArrowLeftOutlined, CheckCircleFilled } from '@ant-design/icons'
-import { App, Button, Card, Col, Form, Input, Row, Select } from 'antd'
+import { App, Button, Card, Col, Form, Input, Row, Select, Timeline, Typography } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
-import { getCard, markCardReady, updateCard, validateCard } from '../api/endpoints'
+import { cardHistory, getCard, markCardReady, updateCard, validateCard } from '../api/endpoints'
 import { IssueList } from '../components/IssueList'
 import { SectionLabel } from '../components/SectionLabel'
 import { StatusTag } from '../components/StatusTag'
-import type { Card as CardType } from '../types'
+import type { AuditEvent, Card as CardType } from '../types'
 
 const ATTR_FIELDS = [
   ['item_type', 'Вид изделия'],
@@ -33,11 +33,14 @@ export function CardDetailPage() {
   const navigate = useNavigate()
   const [form] = Form.useForm()
   const [card, setCard] = useState<CardType | null>(null)
+  const [history, setHistory] = useState<AuditEvent[]>([])
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
     if (!id) return
-    setCard(await getCard(id))
+    const [loadedCard, loadedHistory] = await Promise.all([getCard(id), cardHistory(id)])
+    setCard(loadedCard)
+    setHistory(loadedHistory)
   }, [id])
 
   useEffect(() => {
@@ -56,6 +59,11 @@ export function CardDetailPage() {
       rd_number: card.rd_data.number ?? '',
       rd_date: card.rd_data.date ?? '',
       rd_valid_until: card.rd_data.valid_until ?? '',
+      package_type: card.packaging.type ?? '',
+      units_per_package: card.packaging.units_per_package ?? '',
+      package_weight_g: card.packaging.weight_g ?? '',
+      data_source: card.data_source,
+      service_comment: card.service_comment ?? '',
     })
   }, [card, form])
 
@@ -70,6 +78,10 @@ export function CardDetailPage() {
     if (v.rd_number) rd_data.number = v.rd_number
     if (v.rd_date) rd_data.date = v.rd_date
     if (v.rd_valid_until) rd_data.valid_until = v.rd_valid_until
+    const packaging: Record<string, string | number> = {}
+    if (v.package_type) packaging.type = v.package_type
+    if (v.units_per_package) packaging.units_per_package = Number(v.units_per_package)
+    if (v.package_weight_g) packaging.weight_g = Number(v.package_weight_g)
     return {
       name: v.name,
       vendor_code: v.vendor_code,
@@ -77,6 +89,9 @@ export function CardDetailPage() {
       gtin: v.gtin || null,
       attributes,
       rd_data,
+      packaging,
+      data_source: v.data_source || 'manual',
+      service_comment: v.service_comment || null,
     }
   }
 
@@ -85,6 +100,7 @@ export function CardDetailPage() {
     setBusy(true)
     try {
       setCard(await updateCard(id, collect() as Partial<CardType>))
+      setHistory(await cardHistory(id))
       message.success('Сохранено (статус сброшен в черновик)')
     } catch (e) {
       message.error(errorMessage(e))
@@ -100,6 +116,7 @@ export function CardDetailPage() {
       await updateCard(id, collect() as Partial<CardType>)
       const r = await validateCard(id)
       setCard(r.card)
+      setHistory(await cardHistory(id))
       if (r.result.is_valid) message.success('Карточка валидна')
       else message.warning(`Ошибок: ${r.result.errors.length}`)
     } catch (e) {
@@ -114,6 +131,7 @@ export function CardDetailPage() {
     setBusy(true)
     try {
       setCard(await markCardReady(id))
+      setHistory(await cardHistory(id))
       message.success('Карточка готова к публикации')
     } catch (e) {
       message.error(errorMessage(e))
@@ -178,6 +196,47 @@ export function CardDetailPage() {
                     validateStatus={errorFields.has('gtin') ? 'error' : undefined}
                   >
                     <Input placeholder="4600000000015" style={{ fontFamily: 'var(--font-mono)' }} />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <SectionLabel hint="Используется для прослеживаемости">Источник и комментарии</SectionLabel>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item name="data_source" label="Источник данных">
+                    <Select
+                      options={[
+                        { value: 'manual', label: 'Ручной ввод' },
+                        { value: 'excel', label: 'Excel' },
+                        { value: 'csv', label: 'CSV' },
+                        { value: 'onec', label: '1С' },
+                        { value: 'variations', label: 'Конструктор вариаций' },
+                      ]}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item name="service_comment" label="Служебный комментарий">
+                    <Input.TextArea rows={3} maxLength={4000} showCount />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <SectionLabel hint="Логистические данные карточки">Упаковка</SectionLabel>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item name="package_type" label="Тип упаковки">
+                    <Input placeholder="короб" />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="units_per_package" label="Единиц в упаковке">
+                    <Input type="number" min={1} />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="package_weight_g" label="Вес, г">
+                    <Input type="number" min={0} />
                   </Form.Item>
                 </Col>
               </Row>
@@ -260,12 +319,32 @@ export function CardDetailPage() {
               }
             >
               <IssueList issues={card.validation_issues} />
+              {card.ruleset_version && (
+                <Typography.Text type="secondary" style={{ display: 'block', marginTop: 12 }}>
+                  Правила {card.ruleset_version} · справочники {card.reference_data_version}
+                </Typography.Text>
+              )}
               {errorCount > 0 && (
                 <p style={{ marginTop: 14, marginBottom: 0, fontSize: 12.5, color: 'var(--muted)' }}>
                   Поля с ошибками подсвечены в форме слева. Исправьте и нажмите «Сохранить и
                   валидировать».
                 </p>
               )}
+            </Card>
+            <Card title="История изменений" style={{ marginTop: 16 }}>
+              <Timeline
+                items={history.slice(0, 30).map((event) => ({
+                  children: (
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{event.action}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                        {new Date(event.created_at).toLocaleString('ru-RU')}
+                        {event.correlation_id ? ` · ${event.correlation_id.slice(0, 8)}` : ''}
+                      </div>
+                    </div>
+                  ),
+                }))}
+              />
             </Card>
           </div>
         </Col>

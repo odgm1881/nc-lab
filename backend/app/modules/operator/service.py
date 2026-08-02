@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import DomainError, NotFoundError
+from app.modules.audit import service as audit_service
 from app.modules.catalog import service as catalog_service
 from app.modules.operator.models import (
     STATUS_IN_PROGRESS,
@@ -23,9 +24,12 @@ from app.modules.operator.schemas import (
 _ALLOWED_STATUSES = {STATUS_OPEN, STATUS_IN_PROGRESS, STATUS_RESOLVED}
 
 
-def create_task(db: Session, client_id: str, data: TaskCreateIn) -> TaskOut:
+def create_task(
+    db: Session, client_id: str, data: TaskCreateIn, actor_id: str | None = None
+) -> TaskOut:
     # Проверяем владение через публичный сервис каталога, не обращаясь к его таблице.
-    catalog_service.get_card(db, client_id, data.card_id)
+    if data.card_id:
+        catalog_service.get_card(db, client_id, data.card_id)
     task = OperatorTask(
         client_id=client_id,
         card_id=data.card_id,
@@ -35,6 +39,16 @@ def create_task(db: Session, client_id: str, data: TaskCreateIn) -> TaskOut:
         status=STATUS_OPEN,
     )
     db.add(task)
+    db.flush()
+    audit_service.record(
+        db,
+        client_id=client_id,
+        actor_id=actor_id,
+        action="operator_task.created",
+        entity_type="operator_task",
+        entity_id=task.id,
+        after=audit_service.snapshot(task),
+    )
     db.commit()
     db.refresh(task)
     return TaskOut.model_validate(task)
@@ -68,10 +82,13 @@ def list_tasks(
     return TaskListOut(items=[TaskOut.model_validate(t) for t in items], total=total)
 
 
-def update_task(db: Session, task_id: str, data: TaskUpdateIn) -> TaskOut:
+def update_task(
+    db: Session, task_id: str, data: TaskUpdateIn, actor_id: str | None = None
+) -> TaskOut:
     task = db.get(OperatorTask, task_id)
     if task is None:
         raise NotFoundError("Задача не найдена.")
+    before = audit_service.snapshot(task)
     if data.status is not None:
         if data.status not in _ALLOWED_STATUSES:
             raise DomainError(f"Недопустимый статус задачи: {data.status}")
@@ -82,6 +99,16 @@ def update_task(db: Session, task_id: str, data: TaskUpdateIn) -> TaskOut:
         task.note = data.note
     if data.assignee_id is not None:
         task.assignee_id = data.assignee_id
+    audit_service.record(
+        db,
+        client_id=task.client_id,
+        actor_id=actor_id,
+        action="operator_task.updated",
+        entity_type="operator_task",
+        entity_id=task.id,
+        before=before,
+        after=audit_service.snapshot(task),
+    )
     db.commit()
     db.refresh(task)
     return TaskOut.model_validate(task)

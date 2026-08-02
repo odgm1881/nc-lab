@@ -18,6 +18,11 @@ from app.modules.validation.domain.result import (
 
 Rule = Callable[[CardView, ValidationContext], list[Issue]]
 
+# Версии являются частью воспроизводимого результата валидации. Менять их нужно
+# при изменении поведения правила или состава/значений доменных справочников.
+RULESET_VERSION = "1.0.0"
+REFERENCE_DATA_VERSION = "2026.08"
+
 # Порядок = порядок вывода замечаний. Сначала структурные, затем доменные.
 RULES: list[Rule] = [
     rules.rule_category_known,

@@ -14,13 +14,16 @@ from app.config import settings
 
 
 def hash_password(plain: str) -> str:
-    # bcrypt ограничен 72 байтами — обрезаем на границе байтов.
-    secret = plain.encode("utf-8")[:72]
+    secret = plain.encode("utf-8")
+    if len(secret) > 72:
+        raise ValueError("bcrypt password exceeds 72 bytes")
     return bcrypt.hashpw(secret, bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    secret = plain.encode("utf-8")[:72]
+    secret = plain.encode("utf-8")
+    if len(secret) > 72:
+        return False
     try:
         return bcrypt.checkpw(secret, hashed.encode("utf-8"))
     except ValueError:

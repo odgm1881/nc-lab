@@ -1,12 +1,20 @@
 import { InboxOutlined } from '@ant-design/icons'
-import { App, Button, Card, Space, Table, Tag, Upload } from 'antd'
-import { useState } from 'react'
+import { App, Button, Card, Form, Input, Modal, Select, Space, Table, Tag, Upload } from 'antd'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
-import { importCommit, importPreview } from '../api/endpoints'
+import {
+  createMappingProfile,
+  deleteMappingProfile,
+  downloadImportErrorReport,
+  importCommit,
+  importPreview,
+  listImportJobs,
+  listMappingProfiles,
+} from '../api/endpoints'
 import { PageHeader } from '../components/PageHeader'
-import type { ImportPreview } from '../types'
+import type { ImportCommit, ImportJob, ImportPreview, MappingProfile } from '../types'
 
 export function ImportPage() {
   const { message } = App.useApp()
@@ -14,12 +22,26 @@ export function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [busy, setBusy] = useState(false)
+  const [profiles, setProfiles] = useState<MappingProfile[]>([])
+  const [profileId, setProfileId] = useState<string>()
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [lastCommit, setLastCommit] = useState<ImportCommit | null>(null)
+  const [jobs, setJobs] = useState<ImportJob[]>([])
+  const [profileForm] = Form.useForm()
+
+  const loadProfiles = async () => setProfiles(await listMappingProfiles())
+  const loadJobs = async () => setJobs(await listImportJobs())
+
+  useEffect(() => {
+    Promise.all([loadProfiles(), loadJobs()]).catch((e) => message.error(errorMessage(e)))
+  }, [message])
 
   const onPreview = async (f: File) => {
     setBusy(true)
     try {
       setFile(f)
-      setPreview(await importPreview(f))
+      setLastCommit(null)
+      setPreview(await importPreview(f, undefined, profileId))
     } catch (e) {
       message.error(errorMessage(e))
     } finally {
@@ -31,15 +53,70 @@ export function ImportPage() {
     if (!file) return
     setBusy(true)
     try {
-      const res = await importCommit(file)
+      const res = await importCommit(file, undefined, profileId)
+      setLastCommit(res)
+      await loadJobs()
       message.success(
-        `Импортировано строк: ${res.rows_total}, создано и автоматически провалидировано карточек: ${res.cards_created}`,
+        `Создано карточек: ${res.cards_created}; без ошибок: ${res.rows_success}; с ошибками: ${res.rows_error}`,
       )
-      navigate('/catalog')
+      if (res.rows_error === 0) navigate('/catalog')
     } catch (e) {
       message.error(errorMessage(e))
     } finally {
       setBusy(false)
+    }
+  }
+
+  const onCreateProfile = async () => {
+    try {
+      const values = await profileForm.validateFields()
+      let mapping: Record<string, string>
+      try {
+        mapping = JSON.parse(values.mapping_json) as Record<string, string>
+      } catch {
+        message.error('Сопоставление должно быть корректным JSON-объектом')
+        return
+      }
+      const profile = await createMappingProfile({
+        name: values.name,
+        source: values.source,
+        mapping,
+      })
+      await loadProfiles()
+      setProfileId(profile.id)
+      setProfileOpen(false)
+      profileForm.resetFields()
+      message.success('Профиль сопоставления сохранён')
+    } catch (e) {
+      if (e && typeof e === 'object' && 'errorFields' in e) return
+      message.error(errorMessage(e))
+    }
+  }
+
+  const onDeleteProfile = async () => {
+    if (!profileId) return
+    try {
+      await deleteMappingProfile(profileId)
+      setProfileId(undefined)
+      await loadProfiles()
+      message.success('Профиль удалён')
+    } catch (e) {
+      message.error(errorMessage(e))
+    }
+  }
+
+  const onDownloadReport = async (jobId = lastCommit?.job_id) => {
+    if (!jobId) return
+    try {
+      const blob = await downloadImportErrorReport(jobId)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `import-errors-${jobId.slice(0, 8)}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      message.error(errorMessage(e))
     }
   }
 
@@ -110,6 +187,20 @@ export function ImportPage() {
       </div>
 
       <Card>
+        <Space wrap style={{ marginBottom: 16 }}>
+          <Select
+            allowClear
+            placeholder="Профиль сопоставления колонок"
+            value={profileId}
+            onChange={setProfileId}
+            style={{ minWidth: 280 }}
+            options={profiles.map((profile) => ({ value: profile.id, label: profile.name }))}
+          />
+          <Button onClick={() => setProfileOpen(true)}>Сохранить новый профиль</Button>
+          <Button danger disabled={!profileId} onClick={onDeleteProfile}>
+            Удалить выбранный
+          </Button>
+        </Space>
         <Upload.Dragger
           accept=".xlsx,.csv"
           maxCount={1}
@@ -168,6 +259,86 @@ export function ImportPage() {
           />
         </Card>
       )}
+      {lastCommit && lastCommit.rows_error > 0 && (
+        <Card style={{ marginTop: 16 }} title="Протокол импорта">
+          <Space wrap>
+            <Tag color="green">Без ошибок: {lastCommit.rows_success}</Tag>
+            <Tag color="red">С ошибками: {lastCommit.rows_error}</Tag>
+            <Button onClick={() => void onDownloadReport()}>Скачать отчёт ошибок CSV</Button>
+            <Button type="primary" onClick={() => navigate('/catalog')}>
+              Открыть созданные карточки
+            </Button>
+          </Space>
+        </Card>
+      )}
+      {jobs.length > 0 && (
+        <Card style={{ marginTop: 16 }} title="История импортов">
+          <Table
+            size="small"
+            rowKey="id"
+            dataSource={jobs}
+            pagination={{ pageSize: 10 }}
+            columns={[
+              { title: 'Файл', dataIndex: 'filename' },
+              {
+                title: 'Дата',
+                dataIndex: 'created_at',
+                render: (value: string) => new Date(value).toLocaleString('ru-RU'),
+              },
+              { title: 'Строк', dataIndex: 'rows_total', width: 80 },
+              { title: 'Без ошибок', dataIndex: 'rows_success', width: 110 },
+              { title: 'С ошибками', dataIndex: 'rows_error', width: 110 },
+              {
+                title: '',
+                width: 160,
+                render: (_, job: ImportJob) =>
+                  job.rows_error > 0 ? (
+                    <Button size="small" onClick={() => void onDownloadReport(job.id)}>
+                      Скачать отчёт
+                    </Button>
+                  ) : null,
+              },
+            ]}
+          />
+        </Card>
+      )}
+      <Modal
+        title="Новый профиль сопоставления"
+        open={profileOpen}
+        onCancel={() => setProfileOpen(false)}
+        onOk={onCreateProfile}
+        okText="Сохранить"
+      >
+        <Form
+          form={profileForm}
+          layout="vertical"
+          initialValues={{
+            source: 'csv',
+            mapping_json: '{\n  "Название товара": "name",\n  "Код товара": "vendor_code"\n}',
+          }}
+        >
+          <Form.Item name="name" label="Название профиля" rules={[{ required: true }]}>
+            <Input placeholder="Выгрузка 1С — пилот №1" />
+          </Form.Item>
+          <Form.Item name="source" label="Источник" rules={[{ required: true }]}>
+            <Select
+              options={[
+                { value: 'excel', label: 'Excel' },
+                { value: 'csv', label: 'CSV' },
+                { value: 'onec', label: '1С CSV' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item
+            name="mapping_json"
+            label="Колонка файла → поле НК ЛАБ"
+            rules={[{ required: true }]}
+            extra="Допустимые поля: name, vendor_code, category_code, gtin, color, size, composition и rd_*"
+          >
+            <Input.TextArea rows={8} style={{ fontFamily: 'var(--font-mono)' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

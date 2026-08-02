@@ -11,6 +11,8 @@ class IssueOut(BaseModel):
 
 
 class ValidationResultOut(BaseModel):
+    ruleset_version: str
+    reference_data_version: str
     is_valid: bool
     errors: list[IssueOut] = Field(default_factory=list)
     warnings: list[IssueOut] = Field(default_factory=list)

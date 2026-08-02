@@ -16,6 +16,7 @@ from app.database import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
 
 # импорт моделей для метаданных
+from app.modules.audit import models as _audit  # noqa: E402,F401
 from app.modules.auth import models as _auth  # noqa: E402,F401
 from app.modules.catalog import models as _catalog  # noqa: E402,F401
 from app.modules.import_data import models as _import  # noqa: E402,F401

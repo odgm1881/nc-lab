@@ -99,6 +99,10 @@ ATTRIBUTE_FIELDS = (
     "country",
 )
 
+# Служебный ключ не является пользовательской колонкой и нужен только для
+# точного номера исходной строки в протоколе импорта.
+SOURCE_ROW_NUMBER = "__nklab_source_row__"
+
 
 @dataclass
 class NomenclatureRow:
@@ -119,11 +123,13 @@ def _norm_rd_type(value: str) -> str:
     return RD_TYPE_MAP.get(key, key)
 
 
-def map_row(raw: dict) -> NomenclatureRow:
+def map_row(raw: dict, header_mapping: dict[str, str] | None = None) -> NomenclatureRow:
     """Привести сырую строку (заголовок→значение) к канонической номенклатуре."""
     canonical: dict[str, str] = {}
+    overrides = {_norm_header(k): v for k, v in (header_mapping or {}).items()}
     for header, value in raw.items():
-        field_name = HEADER_MAP.get(_norm_header(header))
+        normalized_header = _norm_header(header)
+        field_name = overrides.get(normalized_header) or HEADER_MAP.get(normalized_header)
         if not field_name:
             continue
         text = "" if value is None else str(value).strip()
@@ -151,7 +157,9 @@ def map_row(raw: dict) -> NomenclatureRow:
     return row
 
 
-def map_rows(raw_rows: list[dict]) -> list[NomenclatureRow]:
+def map_rows(
+    raw_rows: list[dict], header_mapping: dict[str, str] | None = None
+) -> list[NomenclatureRow]:
     """Нормализовать список строк, пропуская полностью пустые."""
-    rows = [map_row(r) for r in raw_rows]
+    rows = [map_row(r, header_mapping) for r in raw_rows]
     return [r for r in rows if r.name or r.vendor_code or r.gtin or r.attributes]

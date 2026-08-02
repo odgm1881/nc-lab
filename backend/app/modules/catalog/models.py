@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, String, UniqueConstraint
+from sqlalchemy import DateTime, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.types import JSONBType
@@ -55,6 +55,11 @@ class Card(Base):
     rd_data: Mapped[dict] = mapped_column(JSONBType, nullable=False, default=dict)
     # Результат последней валидации (список замечаний) — для отображения в кабинете.
     validation_issues: Mapped[list] = mapped_column(JSONBType, nullable=False, default=list)
+    packaging: Mapped[dict] = mapped_column(JSONBType, nullable=False, default=dict)
+    data_source: Mapped[str] = mapped_column(String(40), nullable=False, default="manual")
+    service_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ruleset_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    reference_data_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(

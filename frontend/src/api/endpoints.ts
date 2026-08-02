@@ -4,8 +4,11 @@ import type {
   Card,
   CardList,
   CardValidateResponse,
+  AuditEvent,
   ImportCommit,
+  ImportJob,
   ImportPreview,
+  MappingProfile,
   ModelsList,
   TaskList,
   User,
@@ -75,6 +78,25 @@ export const buildFromVariations = (payload: {
     .post<{ created: number; cards: Card[] }>('/cards/build-from-variations', payload)
     .then((r) => r.data)
 
+export const cardHistory = (id: string) =>
+  api.get<AuditEvent[]>(`/cards/${id}/history`).then((r) => r.data)
+
+export const bulkUpdateCards = (payload: {
+  ids: string[]
+  category_code?: string
+  data_source?: string
+  service_comment?: string
+  attributes?: Record<string, string>
+  packaging?: Record<string, string>
+}) => api.patch<{ updated: number }>('/cards/bulk', payload).then((r) => r.data)
+
+export const exportCards = (payload: {
+  ids?: string[]
+  status?: string
+  name?: string
+  search?: string
+}) => api.post<Blob>('/cards/export', payload, { responseType: 'blob' }).then((r) => r.data)
+
 // --- variations ---
 export const previewVariations = (payload: {
   base_vendor_code: string
@@ -96,10 +118,11 @@ export const checkGtin = (gtin: string) =>
   api.post<{ valid: boolean; message: string }>('/gtin/check', { gtin }).then((r) => r.data)
 
 // --- import ---
-export const importPreview = (file: File, source?: string) => {
+export const importPreview = (file: File, source?: string, profileId?: string) => {
   const form = new FormData()
   form.append('file', file)
   if (source) form.append('source', source)
+  if (profileId) form.append('profile_id', profileId)
   return api
     .post<ImportPreview>('/import/preview', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -107,17 +130,36 @@ export const importPreview = (file: File, source?: string) => {
     .then((r) => r.data)
 }
 
-export const importCommit = (file: File, source?: string) => {
+export const importCommit = (file: File, source?: string, profileId?: string) => {
   const form = new FormData()
   form.append('file', file)
   form.append('create_cards', 'true')
   if (source) form.append('source', source)
+  if (profileId) form.append('profile_id', profileId)
   return api
     .post<ImportCommit>('/import/commit', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     .then((r) => r.data)
 }
+
+export const listMappingProfiles = () =>
+  api.get<MappingProfile[]>('/import/mapping-profiles').then((r) => r.data)
+
+export const createMappingProfile = (payload: {
+  name: string
+  source: 'excel' | 'csv' | 'onec'
+  mapping: Record<string, string>
+}) => api.post<MappingProfile>('/import/mapping-profiles', payload).then((r) => r.data)
+
+export const deleteMappingProfile = (id: string) => api.delete(`/import/mapping-profiles/${id}`)
+
+export const downloadImportErrorReport = (jobId: string) =>
+  api
+    .get<Blob>(`/import/jobs/${jobId}/error-report`, { responseType: 'blob' })
+    .then((r) => r.data)
+
+export const listImportJobs = () => api.get<ImportJob[]>('/import/jobs').then((r) => r.data)
 
 // --- operator ---
 export const listTasks = (status?: string) =>
