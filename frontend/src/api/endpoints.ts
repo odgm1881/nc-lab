@@ -10,6 +10,7 @@ import type {
   ImportPreview,
   MappingProfile,
   ModelsList,
+  NkExchange,
   TaskList,
   User,
   ValidateAllResult,
@@ -96,6 +97,21 @@ export const exportCards = (payload: {
   name?: string
   search?: string
 }) => api.post<Blob>('/cards/export', payload, { responseType: 'blob' }).then((r) => r.data)
+
+// --- файловый / sandbox-обмен с Национальным каталогом ---
+export const prepareNkExchange = (cardId: string, idempotencyKey: string) =>
+  api
+    .post<NkExchange>('/integration/nk/exchanges', {
+      card_id: cardId,
+      mode: 'file',
+      idempotency_key: idempotencyKey,
+    })
+    .then((r) => r.data)
+
+export const downloadNkPayload = (exchangeId: string) =>
+  api
+    .get<Blob>(`/integration/nk/exchanges/${exchangeId}/payload`, { responseType: 'blob' })
+    .then((r) => r.data)
 
 // --- variations ---
 export const previewVariations = (payload: {

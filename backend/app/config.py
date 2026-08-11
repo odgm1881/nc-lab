@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     demo_accounts_enabled: bool = True
     max_upload_bytes: int = 10 * 1024 * 1024
     log_level: str = "INFO"
+    metrics_token: str = ""
+    auth_rate_limit_per_minute: int = 20
 
     @model_validator(mode="after")
     def validate_deployment_safety(self) -> "Settings":
@@ -44,6 +46,8 @@ class Settings(BaseSettings):
             raise ValueError("APP_ENV должен быть development, test, staging или production")
         if self.max_upload_bytes < 1 or self.max_upload_bytes > 100 * 1024 * 1024:
             raise ValueError("MAX_UPLOAD_BYTES должен быть от 1 байта до 100 МБ")
+        if self.auth_rate_limit_per_minute < 1 or self.auth_rate_limit_per_minute > 1000:
+            raise ValueError("AUTH_RATE_LIMIT_PER_MINUTE должен быть от 1 до 1000")
 
         if self.app_env in {"staging", "production"}:
             if self.jwt_secret == "change-me" or len(self.jwt_secret) < 32:
@@ -58,6 +62,10 @@ class Settings(BaseSettings):
                 raise ValueError("DEMO_ACCOUNTS_ENABLED должен быть false в staging/production")
             if self.is_sqlite:
                 raise ValueError("SQLite запрещён в staging/production; используйте PostgreSQL")
+            if len(self.metrics_token) < 16:
+                raise ValueError(
+                    "METRICS_TOKEN для staging/production должен быть не короче 16 символов"
+                )
 
         if self.app_env == "production" and not self.s3_enabled:
             raise ValueError("S3-хранилище обязательно в production")

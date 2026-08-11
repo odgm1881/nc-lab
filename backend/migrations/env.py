@@ -13,6 +13,7 @@ from app.modules.audit import models as _audit  # noqa: F401
 from app.modules.auth import models as _auth  # noqa: F401
 from app.modules.catalog import models as _catalog  # noqa: F401
 from app.modules.import_data import models as _import  # noqa: F401
+from app.modules.nk_exchange import models as _nk_exchange  # noqa: F401
 from app.modules.operator import models as _operator  # noqa: F401
 
 config = context.config

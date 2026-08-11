@@ -5,13 +5,14 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import text
 
 from app.config import settings
 from app.core.exceptions import register_exception_handlers
-from app.core.observability import configure_logging, register_request_logging
+from app.core.observability import configure_logging, register_request_logging, request_metrics
 from app.database import SessionLocal
 
 
@@ -29,6 +30,7 @@ def _create_tables_for_sqlite() -> None:
     from app.modules.auth import models as _auth  # noqa: F401
     from app.modules.catalog import models as _catalog  # noqa: F401
     from app.modules.import_data import models as _import  # noqa: F401
+    from app.modules.nk_exchange import models as _nk_exchange  # noqa: F401
     from app.modules.operator import models as _operator  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
@@ -85,11 +87,19 @@ def health_compatibility() -> dict:
     return liveness()
 
 
+@app.get("/api/metrics", include_in_schema=False, response_class=PlainTextResponse)
+def metrics(authorization: str | None = Header(default=None)) -> str:
+    if settings.metrics_token and authorization != f"Bearer {settings.metrics_token}":
+        raise HTTPException(status_code=401, detail="invalid metrics token")
+    return request_metrics.render()
+
+
 # --- подключение роутеров модулей ---
 from app.modules.auth.router import router as auth_router  # noqa: E402
 from app.modules.catalog.router import router as catalog_router  # noqa: E402
 from app.modules.gtin.router import router as gtin_router  # noqa: E402
 from app.modules.import_data.router import router as import_router  # noqa: E402
+from app.modules.nk_exchange.router import router as nk_exchange_router  # noqa: E402
 from app.modules.operator.router import router as operator_router  # noqa: E402
 from app.modules.rd.router import router as rd_router  # noqa: E402
 from app.modules.validation.router import router as validation_router  # noqa: E402
@@ -97,6 +107,7 @@ from app.modules.variations.router import router as variations_router  # noqa: E
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(import_router, prefix="/api/import", tags=["import"])
+app.include_router(nk_exchange_router, prefix="/api/integration/nk", tags=["nk integration"])
 app.include_router(catalog_router, prefix="/api/cards", tags=["catalog"])
 app.include_router(variations_router, prefix="/api/variations", tags=["variations"])
 app.include_router(validation_router, prefix="/api/validation", tags=["validation"])

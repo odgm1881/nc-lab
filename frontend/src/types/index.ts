@@ -126,6 +126,20 @@ export interface AuditEvent {
   created_at: string
 }
 
+export interface NkExchange {
+  id: string
+  client_id: string
+  card_id: string
+  idempotency_key: string
+  mode: 'file' | 'mock'
+  status: 'pending' | 'prepared' | 'succeeded' | 'failed'
+  response_payload: Record<string, unknown>
+  error: string | null
+  attempts: number
+  created_at: string
+  updated_at: string
+}
+
 export interface ModelGroup {
   name: string
   category_code: string | null

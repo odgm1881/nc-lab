@@ -39,5 +39,6 @@ def test_production_accepts_explicit_safe_settings() -> None:
         cors_origins="https://cabinet.example, https://admin.example",
         s3_access_key="key",
         s3_secret_key="secret",
+        metrics_token="m" * 16,
     )
     assert value.cors_origin_list == ["https://cabinet.example", "https://admin.example"]

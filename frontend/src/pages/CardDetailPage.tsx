@@ -1,10 +1,18 @@
-import { ArrowLeftOutlined, CheckCircleFilled } from '@ant-design/icons'
+import { ArrowLeftOutlined, CheckCircleFilled, DownloadOutlined } from '@ant-design/icons'
 import { App, Button, Card, Col, Form, Input, Row, Select, Timeline, Typography } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
-import { cardHistory, getCard, markCardReady, updateCard, validateCard } from '../api/endpoints'
+import {
+  cardHistory,
+  downloadNkPayload,
+  getCard,
+  markCardReady,
+  prepareNkExchange,
+  updateCard,
+  validateCard,
+} from '../api/endpoints'
 import { IssueList } from '../components/IssueList'
 import { SectionLabel } from '../components/SectionLabel'
 import { StatusTag } from '../components/StatusTag'
@@ -133,6 +141,27 @@ export function CardDetailPage() {
       setCard(await markCardReady(id))
       setHistory(await cardHistory(id))
       message.success('Карточка готова к публикации')
+    } catch (e) {
+      message.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onPrepareNkPackage = async () => {
+    if (!id || !card) return
+    setBusy(true)
+    try {
+      const key = `card-${id}-${card.updated_at}`.slice(0, 120)
+      const exchange = await prepareNkExchange(id, key)
+      const blob = await downloadNkPayload(exchange.id)
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `nk-${card.vendor_code || id}.json`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      message.success('Пакет НК сформирован и записан в журнал обмена')
     } catch (e) {
       message.error(errorMessage(e))
     } finally {
@@ -299,6 +328,14 @@ export function CardDetailPage() {
               </Button>
               <Button onClick={onMarkReady} loading={busy} disabled={card.status !== 'valid'}>
                 Готово к публикации
+              </Button>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={onPrepareNkPackage}
+                loading={busy}
+                disabled={card.status !== 'published'}
+              >
+                Скачать пакет НК
               </Button>
             </div>
           </Card>

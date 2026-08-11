@@ -20,6 +20,7 @@ from app.modules.audit import models as _audit  # noqa: E402,F401
 from app.modules.auth import models as _auth  # noqa: E402,F401
 from app.modules.catalog import models as _catalog  # noqa: E402,F401
 from app.modules.import_data import models as _import  # noqa: E402,F401
+from app.modules.nk_exchange import models as _nk_exchange  # noqa: E402,F401
 from app.modules.operator import models as _operator  # noqa: E402,F401
 
 

@@ -13,6 +13,10 @@ def test_health_endpoints_and_correlation_id(client: TestClient) -> None:
     assert ready.status_code == 200
     assert ready.json()["status"] == "ready"
 
+    metrics = client.get("/api/metrics")
+    assert metrics.status_code == 200
+    assert "nklab_http_requests_total" in metrics.text
+
 
 def test_import_rejects_file_over_limit(auth_client: TestClient, monkeypatch) -> None:
     monkeypatch.setattr(settings, "max_upload_bytes", 8)
