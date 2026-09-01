@@ -29,7 +29,7 @@ def _is_blank(value) -> bool:
 
 
 def rule_category_known(card: CardView, ctx: ValidationContext) -> list[Issue]:
-    """Категория должна быть в словаре. Иначе — предупреждение (проверяем базовый набор)."""
+    """Категория должна быть в поддерживаемом словаре, иначе выпуск блокируется."""
     if _is_blank(card.category_code):
         return [
             Issue(
@@ -43,10 +43,10 @@ def rule_category_known(card: CardView, ctx: ValidationContext) -> list[Issue]:
         return [
             Issue(
                 code="CATEGORY_UNKNOWN",
-                severity=Severity.WARNING,
+                severity=Severity.ERROR,
                 message=(
-                    f"Категория {card.category_code} не в словаре — проверяем базовый "
-                    "набор атрибутов одежды."
+                    f"Категория {card.category_code} не поддерживается словарём НК-ЛАБ. "
+                    "Уточните код до подготовки карточки к публикации."
                 ),
                 field="category_code",
             )
@@ -171,6 +171,24 @@ def rule_rd_present_and_structured(card: CardView, ctx: ValidationContext) -> li
                 severity=Severity.ERROR,
                 message=f"В сведениях РД не заполнено поле «{missing}».",
                 field=f"rd_data.{missing}",
+            )
+        )
+    for invalid in result.invalid_date_fields:
+        issues.append(
+            Issue(
+                code="RD_DATE_INVALID",
+                severity=Severity.ERROR,
+                message=f"Поле РД «{invalid}» должно содержать дату в формате ГГГГ-ММ-ДД.",
+                field=f"rd_data.{invalid}",
+            )
+        )
+    if result.invalid_date_range:
+        issues.append(
+            Issue(
+                code="RD_DATE_RANGE_INVALID",
+                severity=Severity.ERROR,
+                message="Дата выдачи РД не может быть позже даты окончания действия.",
+                field="rd_data.valid_until",
             )
         )
     if result.expired:

@@ -1,6 +1,10 @@
 """Интеграционные тесты: создание → валидация → готовность к публикации."""
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from app.database import SessionLocal
+from app.modules.catalog.models import STATUS_ERROR, Card
 
 VALID_CARD = {
     "name": "Джемпер",
@@ -89,3 +93,25 @@ def test_update_resets_to_draft(auth_client: TestClient):
     r = auth_client.patch(f"/api/cards/{card_id}", json={"name": "Новое имя"})
     assert r.json()["status"] == "draft"
     assert r.json()["name"] == "Новое имя"
+
+
+def test_ready_revalidates_stale_legal_data(auth_client: TestClient):
+    card_id = auth_client.post("/api/cards", json=VALID_CARD).json()["id"]
+    assert auth_client.post(f"/api/cards/{card_id}/validate").json()["result"]["is_valid"]
+
+    # Имитируем истечение РД после предыдущей успешной проверки, не меняя
+    # сохранённый status=valid.
+    with SessionLocal() as db:
+        card = db.scalar(select(Card).where(Card.id == card_id))
+        assert card is not None
+        card.rd_data = {**card.rd_data, "valid_until": "2026-08-31"}
+        db.commit()
+
+    response = auth_client.post(f"/api/cards/{card_id}/ready")
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_STALE"
+    with SessionLocal() as db:
+        card = db.scalar(select(Card).where(Card.id == card_id))
+        assert card is not None
+        assert card.status == STATUS_ERROR
+        assert "RD_EXPIRED" in {issue["code"] for issue in card.validation_issues}

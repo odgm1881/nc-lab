@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.exceptions import ConflictError, DomainError, NotFoundError
 from app.core.storage import new_key, storage
 from app.modules.audit import service as audit_service
@@ -54,6 +55,8 @@ def detect_source(filename: str, source: str | None) -> str:
     lower = filename.lower()
     if lower.endswith((".xlsx", ".xlsm")):
         return "excel"
+    if lower.endswith(".xml"):
+        return "onec"
     if lower.endswith(".csv"):
         return "csv"
     raise DomainError("Не удалось определить формат файла. Укажите source явно.")
@@ -70,7 +73,15 @@ def _parse(source: str, content: bytes) -> list[dict]:
     else:
         raise DomainError(f"Неизвестный источник импорта: {source}")
     try:
-        return parser(content)
+        rows = parser(content)
+        if len(rows) > settings.max_import_rows:
+            raise DomainError(
+                f"В файле больше допустимых {settings.max_import_rows} строк.",
+                code="IMPORT_ROW_LIMIT",
+            )
+        return rows
+    except DomainError:
+        raise
     except Exception as exc:
         logger.warning("import_parse_failed source=%s", source, exc_info=True)
         raise DomainError(

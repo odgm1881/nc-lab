@@ -12,6 +12,7 @@ export function PageHeader({
 }) {
   return (
     <div
+      className="page-header"
       style={{
         display: 'flex',
         alignItems: 'flex-end',
@@ -29,7 +30,7 @@ export function PageHeader({
           </p>
         )}
       </div>
-      {extra && <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>{extra}</div>}
+      {extra && <div className="page-header-actions">{extra}</div>}
     </div>
   )
 }

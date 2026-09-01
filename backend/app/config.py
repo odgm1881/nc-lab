@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,9 +35,22 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
     demo_accounts_enabled: bool = True
     max_upload_bytes: int = 10 * 1024 * 1024
+    max_import_rows: int = 5000
     log_level: str = "INFO"
     metrics_token: str = ""
     auth_rate_limit_per_minute: int = 20
+
+    # Национальный каталог. Боевой/sandbox HTTP-режим выключен до выдачи доступа.
+    nk_api_enabled: bool = False
+    nk_api_base_url: str = "https://api.nk.sandbox.crptech.ru"
+    nk_api_key: str = ""
+    nk_bearer_token: str = ""
+    nk_supplier_key: str = ""
+    nk_api_timeout_seconds: float = 15.0
+    nk_api_max_attempts: int = 3
+    # Маппинги подтверждаются по /v3/categories и /v3/attributes для товарной группы.
+    nk_attribute_map: dict[str, str] = Field(default_factory=dict)
+    nk_category_map: dict[str, int] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_deployment_safety(self) -> "Settings":
@@ -46,8 +59,19 @@ class Settings(BaseSettings):
             raise ValueError("APP_ENV должен быть development, test, staging или production")
         if self.max_upload_bytes < 1 or self.max_upload_bytes > 100 * 1024 * 1024:
             raise ValueError("MAX_UPLOAD_BYTES должен быть от 1 байта до 100 МБ")
+        if self.max_import_rows < 1 or self.max_import_rows > 100_000:
+            raise ValueError("MAX_IMPORT_ROWS должен быть от 1 до 100000")
         if self.auth_rate_limit_per_minute < 1 or self.auth_rate_limit_per_minute > 1000:
             raise ValueError("AUTH_RATE_LIMIT_PER_MINUTE должен быть от 1 до 1000")
+        if not 1 <= self.nk_api_timeout_seconds <= 120:
+            raise ValueError("NK_API_TIMEOUT_SECONDS должен быть от 1 до 120")
+        if not 1 <= self.nk_api_max_attempts <= 5:
+            raise ValueError("NK_API_MAX_ATTEMPTS должен быть от 1 до 5")
+        if self.nk_api_enabled:
+            if not self.nk_api_base_url.startswith("https://"):
+                raise ValueError("NK_API_BASE_URL должен использовать HTTPS")
+            if not (self.nk_api_key or self.nk_bearer_token):
+                raise ValueError("Для включённого API НК задайте NK_API_KEY или NK_BEARER_TOKEN")
 
         if self.app_env in {"staging", "production"}:
             if self.jwt_secret == "change-me" or len(self.jwt_secret) < 32:

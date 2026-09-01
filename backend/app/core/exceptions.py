@@ -36,6 +36,11 @@ class AuthError(DomainError):
     code = "AUTH_ERROR"
 
 
+class PermissionDeniedError(DomainError):
+    status_code = 403
+    code = "PERMISSION_DENIED"
+
+
 class PayloadTooLargeError(DomainError):
     status_code = 413
     code = "PAYLOAD_TOO_LARGE"

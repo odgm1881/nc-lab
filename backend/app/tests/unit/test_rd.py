@@ -53,3 +53,30 @@ def test_empty_rd():
     result = check_rd({})
     assert not result.complete
     assert "type" in result.missing_fields
+
+
+def test_invalid_dates_are_rejected():
+    result = check_rd(
+        {
+            "type": "declaration",
+            "number": "1",
+            "date": "not-a-date",
+            "valid_until": "also-not-a-date",
+        }
+    )
+    assert result.invalid_date_fields == ["date", "valid_until"]
+    assert not result.complete
+
+
+def test_issue_date_cannot_be_after_expiry():
+    result = check_rd(
+        {
+            "type": "certificate",
+            "number": "1",
+            "date": "2029-01-01",
+            "valid_until": "2028-01-01",
+        },
+        today=date(2026, 7, 1),
+    )
+    assert result.invalid_date_range
+    assert not result.complete

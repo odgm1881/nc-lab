@@ -1,22 +1,27 @@
-import { ArrowLeftOutlined, CheckCircleFilled, DownloadOutlined } from '@ant-design/icons'
-import { App, Button, Card, Col, Form, Input, Row, Select, Timeline, Typography } from 'antd'
+import { ArrowLeftOutlined, CheckCircleFilled, CommentOutlined, DownloadOutlined } from '@ant-design/icons'
+import { Alert, App, Button, Card, Col, Form, Input, List, Modal, Row, Select, Space, Steps, Tag, Timeline, Typography } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
 import {
   cardHistory,
+  addTaskComment,
+  createTask,
   downloadNkPayload,
   getCard,
+  listMyTasks,
+  listTaskComments,
   markCardReady,
   prepareNkExchange,
   updateCard,
   validateCard,
 } from '../api/endpoints'
+import { useAuth } from '../auth/AuthContext'
 import { IssueList } from '../components/IssueList'
 import { SectionLabel } from '../components/SectionLabel'
 import { StatusTag } from '../components/StatusTag'
-import type { AuditEvent, Card as CardType } from '../types'
+import type { AuditEvent, Card as CardType, OperatorTask, TaskComment } from '../types'
 
 const ATTR_FIELDS = [
   ['item_type', 'Вид изделия'],
@@ -35,20 +40,42 @@ const RD_TYPES = [
   { value: 'refusal_letter', label: 'Отказное письмо' },
 ]
 
+function escalationCategory(card: CardType): string {
+  const codes = card.validation_issues.map((issue) => issue.code)
+  if (codes.some((code) => code.startsWith('CATEGORY'))) return 'category'
+  if (codes.some((code) => code.startsWith('GTIN'))) return 'gtin'
+  if (codes.some((code) => code.startsWith('RD_'))) return 'rd'
+  if (codes.some((code) => code.startsWith('ATTR'))) return 'attributes'
+  return 'other'
+}
+
 export function CardDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { message } = App.useApp()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const canEdit = user?.role !== 'viewer'
   const [form] = Form.useForm()
+  const [taskForm] = Form.useForm()
   const [card, setCard] = useState<CardType | null>(null)
   const [history, setHistory] = useState<AuditEvent[]>([])
+  const [tasks, setTasks] = useState<OperatorTask[]>([])
+  const [taskDetail, setTaskDetail] = useState<OperatorTask | null>(null)
+  const [taskComments, setTaskComments] = useState<TaskComment[]>([])
   const [busy, setBusy] = useState(false)
+  const [taskOpen, setTaskOpen] = useState(false)
+  const [commentForm] = Form.useForm()
 
   const load = useCallback(async () => {
     if (!id) return
-    const [loadedCard, loadedHistory] = await Promise.all([getCard(id), cardHistory(id)])
+    const [loadedCard, loadedHistory, loadedTasks] = await Promise.all([
+      getCard(id),
+      cardHistory(id),
+      listMyTasks(id),
+    ])
     setCard(loadedCard)
     setHistory(loadedHistory)
+    setTasks(loadedTasks.items)
   }, [id])
 
   useEffect(() => {
@@ -169,6 +196,54 @@ export function CardDetailPage() {
     }
   }
 
+  const onEscalate = async () => {
+    if (!id || !card) return
+    try {
+      const values = await taskForm.validateFields()
+      setBusy(true)
+      await createTask({
+        card_id: id,
+        title: values.title,
+        category: values.category,
+        escalation_reason: values.escalation_reason,
+        note: values.note || undefined,
+        due_at: values.due_at ? new Date(values.due_at).toISOString() : undefined,
+        priority: values.priority,
+      })
+      setTaskOpen(false)
+      taskForm.resetFields()
+      setTasks((await listMyTasks(id)).items)
+      message.success('Карточка передана оператору')
+    } catch (error) {
+      if ((error as { errorFields?: unknown }).errorFields) return
+      message.error(errorMessage(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const openTaskDiscussion = async (task: OperatorTask) => {
+    try {
+      setTaskDetail(task)
+      setTaskComments(await listTaskComments(task.id))
+    } catch (error) {
+      message.error(errorMessage(error))
+    }
+  }
+
+  const sendTaskComment = async () => {
+    if (!taskDetail) return
+    try {
+      const values = await commentForm.validateFields()
+      const comment = await addTaskComment(taskDetail.id, values.message)
+      setTaskComments((current) => [...current, comment])
+      commentForm.resetFields()
+    } catch (error) {
+      if (error && typeof error === 'object' && 'errorFields' in error) return
+      message.error(errorMessage(error))
+    }
+  }
+
   if (!card) return null
 
   // Связь панели валидации с полями: подсвечиваем поля, по которым есть ошибки.
@@ -179,6 +254,16 @@ export function CardDetailPage() {
   const attrStatus = (k: string) => (errorFields.has(k) ? 'error' : undefined)
   const rdStatus = (k: string) => (rdMissing || errorFields.has(`rd_data.${k}`) ? 'error' : undefined)
   const errorCount = card.validation_issues.filter((i) => i.severity === 'error').length
+  const requiredAttributes = ['item_type', 'composition', 'size', 'color', 'gender', 'age_group']
+  const preparationChecks = [
+    Boolean(card.name && card.vendor_code && card.category_code),
+    requiredAttributes.every((key) => Boolean(card.attributes[key])),
+    Boolean(card.gtin),
+    Boolean(card.rd_data.type && card.rd_data.number && card.rd_data.date && card.rd_data.valid_until),
+    card.status === 'valid' || card.status === 'published',
+  ]
+  const firstIncomplete = preparationChecks.findIndex((done) => !done)
+  const currentPreparationStep = firstIncomplete === -1 ? 4 : firstIncomplete
 
   return (
     <div>
@@ -197,10 +282,25 @@ export function CardDetailPage() {
         </span>
       </div>
 
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Steps
+          current={currentPreparationStep}
+          responsive
+          items={['Основное', 'Атрибуты', 'GTIN', 'РД', 'Валидация'].map((title, index) => ({
+            title,
+            status: preparationChecks[index]
+              ? 'finish'
+              : index === currentPreparationStep
+                ? 'process'
+                : 'wait',
+          }))}
+        />
+      </Card>
+
       <Row gutter={16}>
         <Col xs={24} lg={15}>
           <Card title="Карточка" styles={{ body: { paddingBottom: 0 } }}>
-            <Form form={form} layout="vertical" requiredMark={false}>
+            <Form form={form} layout="vertical" requiredMark={false} disabled={!canEdit}>
               <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item name="name" label="Наименование">
@@ -320,23 +420,26 @@ export function CardDetailPage() {
                 borderBottomRightRadius: 'var(--r-lg)',
               }}
             >
-              <Button onClick={onSave} loading={busy}>
-                Сохранить
-              </Button>
-              <Button type="primary" onClick={onValidate} loading={busy}>
-                Сохранить и валидировать
-              </Button>
-              <Button onClick={onMarkReady} loading={busy} disabled={card.status !== 'valid'}>
-                Готово к публикации
-              </Button>
-              <Button
-                icon={<DownloadOutlined />}
-                onClick={onPrepareNkPackage}
-                loading={busy}
-                disabled={card.status !== 'published'}
-              >
-                Скачать пакет НК
-              </Button>
+              {canEdit && (
+                <>
+                  <Button onClick={onSave} loading={busy}>Сохранить</Button>
+                  <Button type="primary" onClick={onValidate} loading={busy}>Сохранить и валидировать</Button>
+                  <Button onClick={onMarkReady} loading={busy} disabled={card.status !== 'valid'}>Готово к публикации</Button>
+                  <Button
+                    icon={<DownloadOutlined />}
+                    onClick={onPrepareNkPackage}
+                    loading={busy}
+                    disabled={card.status !== 'published'}
+                  >
+                    Скачать пакет НК
+                  </Button>
+                </>
+              )}
+              {errorCount > 0 && (
+                <Button danger onClick={() => setTaskOpen(true)}>
+                  Передать оператору
+                </Button>
+              )}
             </div>
           </Card>
         </Col>
@@ -371,7 +474,7 @@ export function CardDetailPage() {
             <Card title="История изменений" style={{ marginTop: 16 }}>
               <Timeline
                 items={history.slice(0, 30).map((event) => ({
-                  children: (
+                  content: (
                     <div>
                       <div style={{ fontWeight: 600 }}>{event.action}</div>
                       <div style={{ color: 'var(--muted)', fontSize: 12 }}>
@@ -383,9 +486,168 @@ export function CardDetailPage() {
                 }))}
               />
             </Card>
+            <Card title={`Обращения оператору · ${tasks.length}`} style={{ marginTop: 16 }}>
+              {tasks.some((task) => task.status === 'waiting_client') && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  title="Оператор ждёт уточнение"
+                  description="Откройте обсуждение задачи и ответьте на вопрос."
+                  style={{ marginBottom: 12 }}
+                />
+              )}
+              <List
+                size="small"
+                dataSource={tasks}
+                locale={{ emptyText: 'Обращений по карточке нет' }}
+                renderItem={(task) => (
+                  <List.Item
+                    actions={[
+                      <Button
+                        key="discussion"
+                        type="link"
+                        icon={<CommentOutlined />}
+                        onClick={() => void openTaskDiscussion(task)}
+                      >
+                        Обсуждение
+                      </Button>,
+                    ]}
+                  >
+                    <List.Item.Meta
+                      title={task.title}
+                      description={
+                        <Space size={4} wrap>
+                          <Tag>
+                            {task.status === 'resolved'
+                              ? 'Решено'
+                              : task.status === 'in_progress'
+                                ? 'В работе'
+                                : task.status === 'waiting_client'
+                                  ? 'Ожидает ответа'
+                                  : 'Открыта'}
+                          </Tag>
+                          {task.resolution && <span>Результат: {task.resolution}</span>}
+                        </Space>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            </Card>
           </div>
         </Col>
       </Row>
+      <Modal
+        title={taskDetail?.title ?? 'Обсуждение с оператором'}
+        open={Boolean(taskDetail)}
+        onCancel={() => setTaskDetail(null)}
+        footer={null}
+        destroyOnHidden
+      >
+        <List
+          dataSource={taskComments}
+          locale={{ emptyText: 'Сообщений пока нет' }}
+          renderItem={(comment) => (
+            <List.Item>
+              <List.Item.Meta
+                title={
+                  <Space>
+                    <span>{comment.author_name}</span>
+                    <Tag>{comment.author_role === 'client' ? 'Клиент' : 'Оператор'}</Tag>
+                  </Space>
+                }
+                description={
+                  <>
+                    <div style={{ color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{comment.message}</div>
+                    <div style={{ marginTop: 4 }}>{new Date(comment.created_at).toLocaleString('ru-RU')}</div>
+                  </>
+                }
+              />
+            </List.Item>
+          )}
+        />
+        <Form form={commentForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item
+            name="message"
+            label="Ответ оператору"
+            rules={[{ required: true, whitespace: true, message: 'Введите сообщение' }]}
+          >
+            <Input.TextArea rows={3} maxLength={4000} showCount />
+          </Form.Item>
+          <Button type="primary" onClick={() => void sendTaskComment()}>
+            Отправить
+          </Button>
+        </Form>
+      </Modal>
+      <Modal
+        title="Передать карточку оператору"
+        open={taskOpen}
+        okText="Создать задачу"
+        cancelText="Отмена"
+        confirmLoading={busy}
+        onOk={() => void onEscalate()}
+        onCancel={() => setTaskOpen(false)}
+        destroyOnHidden
+      >
+        <Form
+          form={taskForm}
+          layout="vertical"
+          requiredMark="optional"
+          initialValues={{
+            title: `Проверить: ${card.name || card.vendor_code}`,
+            escalation_reason: card.validation_issues
+              .filter((issue) => issue.severity === 'error')
+              .map((issue) => `${issue.code}: ${issue.message}`)
+              .join('\n'),
+            category: escalationCategory(card),
+            priority: 2,
+          }}
+        >
+          <Form.Item name="title" label="Задача" rules={[{ required: true, message: 'Укажите задачу' }]}>
+            <Input maxLength={255} autoFocus />
+          </Form.Item>
+          <Form.Item name="category" label="Категория обращения">
+            <Select
+              options={[
+                { value: 'attributes', label: 'Атрибуты' },
+                { value: 'gtin', label: 'GTIN' },
+                { value: 'rd', label: 'Разрешительные документы' },
+                { value: 'category', label: 'Категория товара' },
+                { value: 'integration', label: 'Интеграция' },
+                { value: 'other', label: 'Другое' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item
+            name="escalation_reason"
+            label="Причина передачи"
+            rules={[{ required: true, message: 'Опишите спорный вопрос' }]}
+          >
+            <Input.TextArea rows={4} maxLength={2000} showCount />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="priority" label="Приоритет">
+                <Select
+                  options={[
+                    { value: 1, label: 'Низкий' },
+                    { value: 2, label: 'Обычный' },
+                    { value: 3, label: 'Высокий' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="due_at" label="Срок решения">
+                <Input type="datetime-local" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="note" label="Дополнительный контекст">
+            <Input.TextArea rows={2} maxLength={4000} showCount />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

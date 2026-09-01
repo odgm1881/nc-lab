@@ -6,9 +6,16 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.modules.auth import service
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, require_client_admin
 from app.modules.auth.models import User
-from app.modules.auth.schemas import LoginIn, RegisterIn, TokenOut, UserOut
+from app.modules.auth.schemas import (
+    LoginIn,
+    RegisterIn,
+    TeamUserCreateIn,
+    TeamUserRoleIn,
+    TokenOut,
+    UserOut,
+)
 
 router = APIRouter()
 
@@ -34,3 +41,30 @@ def login_form(
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)) -> User:
     return user
+
+
+@router.get("/users", response_model=list[UserOut])
+def users(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_client_admin),
+) -> list[User]:
+    return service.list_team(db, user)
+
+
+@router.post("/users", response_model=UserOut, status_code=201)
+def create_user(
+    data: TeamUserCreateIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_client_admin),
+) -> User:
+    return service.create_team_user(db, user, data)
+
+
+@router.patch("/users/{user_id}/role", response_model=UserOut)
+def update_user_role(
+    user_id: str,
+    data: TeamUserRoleIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_client_admin),
+) -> User:
+    return service.update_team_role(db, user, user_id, data)

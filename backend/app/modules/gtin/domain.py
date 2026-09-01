@@ -27,10 +27,14 @@ class GtinCheck:
 
 
 def normalize_gtin(raw: str | None) -> str:
-    """Убрать пробелы и незначащие символы. Сохраняем ведущие нули."""
+    """Убрать только пробельные символы. Сохраняем ведущие нули.
+
+    Буквы и пунктуацию намеренно не отбрасываем: иначе значение вроде
+    ``46A01000001002`` незаметно превращается в другой, формально валидный GTIN.
+    """
     if not raw:
         return ""
-    return "".join(ch for ch in str(raw).strip() if ch.isdigit())
+    return "".join(ch for ch in str(raw).strip() if not ch.isspace())
 
 
 def compute_check_digit(body: str) -> int | None:

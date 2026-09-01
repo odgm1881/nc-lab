@@ -34,6 +34,21 @@ def test_build_from_variations_creates_cards(auth_client: TestClient):
     assert auth_client.get("/api/cards").json()["total"] == 4
 
 
+def test_variation_preview_rejects_oversized_cartesian_product(auth_client: TestClient):
+    values = [str(index) for index in range(10)]
+    response = auth_client.post(
+        "/api/variations/preview",
+        json={
+            "colors": values,
+            "sizes": values,
+            "genders": values,
+            "completeness": values,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VARIATION_LIMIT_EXCEEDED"
+
+
 def _xlsx_bytes() -> bytes:
     wb = Workbook()
     ws = wb.active

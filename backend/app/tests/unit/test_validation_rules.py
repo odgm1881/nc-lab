@@ -58,6 +58,30 @@ def test_missing_rd_is_error():
     assert "RD_MISSING" in {i.code for i in result.errors}
 
 
+def test_rd_invalid_date_and_range_are_explained():
+    invalid_date = _good_card(
+        rd_data={
+            "type": "declaration",
+            "number": "1",
+            "date": "31.02.2026",
+            "valid_until": "2029-01-01",
+        }
+    )
+    result = run_validation(invalid_date)
+    assert "RD_DATE_INVALID" in {issue.code for issue in result.errors}
+
+    invalid_range = _good_card(
+        rd_data={
+            "type": "declaration",
+            "number": "1",
+            "date": "2029-01-02",
+            "valid_until": "2029-01-01",
+        }
+    )
+    result = run_validation(invalid_range)
+    assert "RD_DATE_RANGE_INVALID" in {issue.code for issue in result.errors}
+
+
 def test_mixed_variation_is_error():
     attrs = _good_card().attributes | {"color": "чёрный, белый"}
     result = run_validation(_good_card(attributes=attrs))
@@ -77,6 +101,7 @@ def test_gtin_unique_for_same_card_ok():
     assert "GTIN_NOT_UNIQUE" not in {i.code for i in result.errors}
 
 
-def test_unknown_category_is_warning():
+def test_unknown_category_is_blocking_error():
     result = run_validation(_good_card(category_code="9999"))
-    assert "CATEGORY_UNKNOWN" in {i.code for i in result.warnings}
+    assert "CATEGORY_UNKNOWN" in {i.code for i in result.errors}
+    assert not result.is_valid

@@ -124,11 +124,12 @@ export function ImportPage() {
     <div>
       <PageHeader
         title="Импорт номенклатуры"
-        subtitle="Загрузите ассортимент из Excel или CSV — система разберёт строки, создаст карточки и сразу их провалидирует."
+        subtitle="Загрузите ассортимент из Excel, CSV или CommerceML 1С — система разберёт строки, создаст карточки и сразу их провалидирует."
         extra={
           <Space size={6}>
             <Tag>.xlsx</Tag>
             <Tag>.csv</Tag>
+            <Tag>.xml</Tag>
             <Tag>1С</Tag>
           </Space>
         }
@@ -145,7 +146,7 @@ export function ImportPage() {
         }}
       >
         {[
-          ['1', 'Загрузите файл', 'Excel/CSV с колонками номенклатуры'],
+          ['1', 'Загрузите файл', 'Excel/CSV или CommerceML 1С'],
           ['2', 'Проверьте разбор', 'Предпросмотр распознанных строк'],
           ['3', 'Создайте карточки', 'Автоматическая валидация статусов'],
         ].map(([n, t, d]) => (
@@ -202,7 +203,7 @@ export function ImportPage() {
           </Button>
         </Space>
         <Upload.Dragger
-          accept=".xlsx,.csv"
+          accept=".xlsx,.csv,.xml"
           maxCount={1}
           beforeUpload={(f) => {
             void onPreview(f)
@@ -239,9 +240,12 @@ export function ImportPage() {
         >
           <Table
             size="small"
-            rowKey={(_, i) => String(i)}
+            rowKey="__previewRowKey"
             pagination={{ pageSize: 10 }}
-            dataSource={preview.rows}
+            dataSource={preview.rows.map((row, index) => ({
+              ...row,
+              __previewRowKey: `${index}-${row.vendor_code}-${row.gtin ?? ''}`,
+            }))}
             columns={[
               { title: 'Наименование', dataIndex: 'name' },
               { title: 'Артикул', dataIndex: 'vendor_code' },
@@ -325,7 +329,7 @@ export function ImportPage() {
               options={[
                 { value: 'excel', label: 'Excel' },
                 { value: 'csv', label: 'CSV' },
-                { value: 'onec', label: '1С CSV' },
+                { value: 'onec', label: '1С CSV / CommerceML' },
               ]}
             />
           </Form.Item>

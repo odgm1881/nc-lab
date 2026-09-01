@@ -73,10 +73,10 @@ class BuildFromVariationsIn(BaseModel):
     # общие атрибуты для всех SKU (состав, бренд, возрастная группа и т.п.)
     common_attributes: dict = Field(default_factory=dict)
     rd_data: dict = Field(default_factory=dict)
-    colors: list[str] = Field(default_factory=list)
-    sizes: list[str] = Field(default_factory=list)
-    genders: list[str] = Field(default_factory=list)
-    completeness: list[str] = Field(default_factory=list)
+    colors: list[str] = Field(default_factory=list, max_length=100)
+    sizes: list[str] = Field(default_factory=list, max_length=100)
+    genders: list[str] = Field(default_factory=list, max_length=100)
+    completeness: list[str] = Field(default_factory=list, max_length=100)
 
 
 class BuildFromVariationsOut(BaseModel):

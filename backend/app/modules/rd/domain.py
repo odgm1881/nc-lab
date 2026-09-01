@@ -34,11 +34,19 @@ TYPES_WITHOUT_EXPIRY = {"refusal_letter"}
 class RdCheck:
     known_type: bool
     missing_fields: list[str] = field(default_factory=list)
+    invalid_date_fields: list[str] = field(default_factory=list)
+    invalid_date_range: bool = False
     expired: bool = False
 
     @property
     def complete(self) -> bool:
-        return self.known_type and not self.missing_fields and not self.expired
+        return (
+            self.known_type
+            and not self.missing_fields
+            and not self.invalid_date_fields
+            and not self.invalid_date_range
+            and not self.expired
+        )
 
 
 def _is_blank(value) -> bool:
@@ -60,17 +68,38 @@ def check_rd(rd_data: dict | None, today: date | None = None) -> RdCheck:
     required = ["type", "number", "date"]
     missing = [f for f in required if _is_blank(data.get(f))]
 
+    invalid_date_fields: list[str] = []
+    issue_date = None
+    if not _is_blank(data.get("date")):
+        issue_date = _parse_date(data.get("date"))
+        if issue_date is None:
+            invalid_date_fields.append("date")
+
     expired = False
+    valid_until_date = None
     if known_type and rd_type not in TYPES_WITHOUT_EXPIRY:
         valid_until = data.get("valid_until")
         if _is_blank(valid_until):
             missing.append("valid_until")
         else:
-            parsed = _parse_date(valid_until)
-            if parsed is not None and parsed < today:
+            valid_until_date = _parse_date(valid_until)
+            if valid_until_date is None:
+                invalid_date_fields.append("valid_until")
+            elif valid_until_date < today:
                 expired = True
 
-    return RdCheck(known_type=known_type, missing_fields=missing, expired=expired)
+    invalid_date_range = bool(
+        issue_date is not None
+        and valid_until_date is not None
+        and issue_date > valid_until_date
+    )
+    return RdCheck(
+        known_type=known_type,
+        missing_fields=missing,
+        invalid_date_fields=invalid_date_fields,
+        invalid_date_range=invalid_date_range,
+        expired=expired,
+    )
 
 
 def _parse_date(value) -> date | None:

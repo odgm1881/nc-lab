@@ -26,6 +26,14 @@ class Storage:
             return self._get_s3(key)
         return self._get_local(key)
 
+    def ready(self) -> bool:
+        """Проверить доступность рабочего хранилища без раскрытия конфигурации."""
+        if settings.s3_enabled:
+            self._client().head_bucket(Bucket=settings.s3_bucket)
+            return True
+        _LOCAL_ROOT.mkdir(parents=True, exist_ok=True)
+        return os.access(_LOCAL_ROOT, os.R_OK | os.W_OK)
+
     # --- локальное хранилище ---
     def _put_local(self, key: str, data: bytes) -> str:
         path = _LOCAL_ROOT / key

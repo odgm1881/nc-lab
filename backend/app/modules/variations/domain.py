@@ -12,6 +12,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from itertools import product
 
+MAX_VARIATION_COMBINATIONS = 5_000
+
+
+class VariationLimitError(ValueError):
+    """Декартово произведение осей превышает безопасный предел."""
+
 
 @dataclass(frozen=True)
 class VariationAxes:
@@ -74,6 +80,12 @@ def build_variations(axes: VariationAxes) -> list[Variation]:
     Порядок стабилен: цвет → размер → пол → комплектность.
     """
     ax = axes.normalized()
+    count = variation_count(ax)
+    if count > MAX_VARIATION_COMBINATIONS:
+        raise VariationLimitError(
+            "Слишком много комбинаций вариаций: "
+            f"{count}. Допустимо не более {MAX_VARIATION_COMBINATIONS}."
+        )
     combos = product(
         _axis_or_none(ax.colors),
         _axis_or_none(ax.sizes),

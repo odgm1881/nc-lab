@@ -251,6 +251,220 @@ h1 { letter-spacing: -0.03em; }
   background-position: -1px -1px;
 }
 
+/* --- левая панель: крупные навигационные кнопки --- */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--side-w, 264px) minmax(0, 1fr);
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app-content {
+  padding: 28px;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dashboard-workflow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.app-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-nav-button {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  background: transparent;
+  color: var(--side-muted);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-nav-button__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.035);
+  color: inherit;
+  font-size: 19px;
+}
+
+.app-nav-button--active {
+  border-color: rgba(94, 234, 212, 0.16);
+  background: var(--side-active);
+  color: #a7f3d0;
+  box-shadow: inset 3px 0 0 #14b8a6, 0 4px 14px -8px rgba(20, 184, 166, 0.55);
+}
+
+.app-nav-button--active .app-nav-button__icon {
+  background: rgba(20, 184, 166, 0.14);
+  color: #5eead4;
+}
+
+.app-nav-button:focus-visible {
+  outline: 3px solid rgba(94, 234, 212, 0.32);
+  outline-offset: 2px;
+}
+
+.stagger > button:focus-visible {
+  outline: 3px solid rgba(20, 184, 166, 0.28);
+  outline-offset: 3px;
+}
+
+.pilot-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pilot-metric {
+  display: flex;
+  min-height: 94px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 15px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.pilot-metric > span {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.pilot-metric > strong {
+  color: var(--ink);
+  font-size: 25px;
+  line-height: 1;
+}
+
+.pilot-baseline-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+
+.pilot-effect-count {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pilot-effect-table-wrap {
+  overflow-x: auto;
+}
+
+.pilot-effect-table {
+  width: 100%;
+  min-width: 660px;
+  border-collapse: collapse;
+}
+
+.pilot-effect-table th,
+.pilot-effect-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+}
+
+.pilot-effect-table thead th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pilot-effect-table tbody th {
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.pilot-effect-empty {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.ruleset-secondary {
+  max-width: 440px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.ruleset-form-grid {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.65fr) minmax(280px, 1.35fr);
+  gap: 16px;
+}
+
+.integration-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.integration-summary-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.integration-summary-item span,
+.integration-secondary {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.integration-summary-item strong {
+  color: var(--ink);
+  font-size: 23px;
+}
+
+.team-secondary {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-nav-button:not(.app-nav-button--active):hover {
+    background: rgba(255, 255, 255, 0.055);
+    color: var(--side-ink);
+  }
+
+  .app-nav-button:not(.app-nav-button--active):hover .app-nav-button__icon {
+    background: rgba(255, 255, 255, 0.07);
+  }
+}
+
 /* фокус-кольцо в бренд-цвете */
 :where(.ant-btn, .ant-input, .ant-input-affix-wrapper, .ant-select-selector):focus-visible,
 .ant-input:focus, .ant-input-focused { outline: none; }
@@ -258,6 +472,108 @@ h1 { letter-spacing: -0.03em; }
 /* адаптивность: на узких экранах прячем брендовую панель логина и сайдбар */
 @media (max-width: 900px) {
   .login-brand { display: none !important; }
+
+  .app-shell {
+    --side-w: 72px;
+  }
+
+  .app-sidebar {
+    padding: 12px 8px !important;
+  }
+
+  .app-sidebar-brand,
+  .app-sidebar-eyebrow,
+  .app-sidebar-footer,
+  .app-header-context,
+  .app-user-label,
+  .app-nav-button > span:not(.app-nav-button__icon) {
+    display: none !important;
+  }
+
+  .app-nav {
+    gap: 6px;
+  }
+
+  .app-nav-button {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    min-height: 52px;
+    padding: 6px;
+  }
+
+  .app-header {
+    justify-content: flex-end !important;
+    height: 56px !important;
+    padding: 0 14px !important;
+  }
+
+  .app-content {
+    padding: 18px 16px;
+  }
+
+  .pilot-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-workflow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .integration-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell {
+    --side-w: 60px;
+  }
+
+  .app-content {
+    padding: 14px 12px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .app-sidebar {
+    padding-inline: 4px !important;
+  }
+
+  .app-nav-button {
+    min-height: 48px;
+  }
+
+  .app-nav-button__icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .page-header {
+    align-items: stretch !important;
+  }
+
+  .page-header-actions {
+    width: 100%;
+  }
+
+  .page-header-actions > .ant-btn {
+    flex: 1 1 auto;
+  }
+
+  .pilot-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pilot-baseline-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ruleset-form-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .integration-summary-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* доступность: мягче анимации при reduced-motion (apple §14) */

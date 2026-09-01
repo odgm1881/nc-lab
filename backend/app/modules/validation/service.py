@@ -5,6 +5,8 @@
 используя тот же реестр правил.
 """
 
+from sqlalchemy.orm import Session
+
 from app.modules.validation.domain.registry import (
     REFERENCE_DATA_VERSION,
     RULESET_VERSION,
@@ -23,6 +25,7 @@ from app.modules.validation.schemas import (
     RulesOut,
     ValidationResultOut,
 )
+from app.modules.validation_rulesets.service import resolve_ruleset
 
 
 def _issue_to_schema(issue: Issue) -> IssueOut:
@@ -34,9 +37,12 @@ def _issue_to_schema(issue: Issue) -> IssueOut:
     )
 
 
-def result_to_schema(result: ValidationResult) -> ValidationResultOut:
+def result_to_schema(
+    result: ValidationResult,
+    ruleset_version: str | None = None,
+) -> ValidationResultOut:
     return ValidationResultOut(
-        ruleset_version=RULESET_VERSION,
+        ruleset_version=ruleset_version or RULESET_VERSION,
         reference_data_version=REFERENCE_DATA_VERSION,
         is_valid=result.is_valid,
         errors=[_issue_to_schema(i) for i in result.errors],
@@ -45,7 +51,7 @@ def result_to_schema(result: ValidationResult) -> ValidationResultOut:
     )
 
 
-def validate_payload(data: CardValidationIn) -> ValidationResultOut:
+def validate_payload(db: Session, data: CardValidationIn) -> ValidationResultOut:
     """Проверить карточку-черновик без сохранения и без контекста уникальности GTIN."""
     card = CardView(
         category_code=data.category_code,
@@ -53,8 +59,13 @@ def validate_payload(data: CardValidationIn) -> ValidationResultOut:
         attributes=data.attributes or {},
         rd_data=data.rd_data or {},
     )
-    result = run_validation(card, ValidationContext())
-    return result_to_schema(result)
+    ruleset = resolve_ruleset(db, data.category_code)
+    result = run_validation(
+        card,
+        ValidationContext(),
+        rule_names=ruleset.rule_names,
+    )
+    return result_to_schema(result, ruleset.version)
 
 
 def list_rules() -> RulesOut:

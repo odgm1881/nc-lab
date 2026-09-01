@@ -1,10 +1,14 @@
 import {
   AppstoreOutlined,
   DashboardOutlined,
+  ExperimentOutlined,
   ImportOutlined,
+  LinkOutlined,
   LogoutOutlined,
   ProfileOutlined,
+  SafetyCertificateOutlined,
   ToolOutlined,
+  TeamOutlined,
 } from '@ant-design/icons'
 import { Avatar, Dropdown } from 'antd'
 import type { ReactNode } from 'react'
@@ -16,12 +20,16 @@ import { Brand } from './Brand'
 
 const NAV = [
   { key: '/', icon: <DashboardOutlined />, label: 'Обзор' },
+  { key: '/pilots', icon: <ExperimentOutlined />, label: 'Пилоты' },
   { key: '/import', icon: <ImportOutlined />, label: 'Импорт' },
   { key: '/variations', icon: <AppstoreOutlined />, label: 'Вариации' },
   { key: '/catalog', icon: <ProfileOutlined />, label: 'Каталог' },
+  { key: '/integration', icon: <LinkOutlined />, label: 'Интеграция НК' },
 ]
 
 const OPERATOR_NAV = { key: '/operator', icon: <ToolOutlined />, label: 'Консоль оператора' }
+const RULES_NAV = { key: '/validation-rules', icon: <SafetyCertificateOutlined />, label: 'Правила валидации' }
+const TEAM_NAV = { key: '/team', icon: <TeamOutlined />, label: 'Команда' }
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
@@ -29,8 +37,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation()
   const [scrolled, setScrolled] = useState(false)
   const isOperator = user?.role === 'operator' || user?.role === 'admin'
+  const canEdit = user?.role !== 'viewer'
+  const canManageTeam = Boolean(
+    user?.client_id && ['client', 'client_admin', 'admin'].includes(user.role),
+  )
 
-  const items = isOperator ? [...NAV, OPERATOR_NAV] : NAV
+  const baseItems = canEdit ? NAV : NAV.filter((item) => !['/import', '/variations'].includes(item.key))
+  const items = [
+    ...baseItems,
+    ...(isOperator ? [OPERATOR_NAV, RULES_NAV] : []),
+    ...(canManageTeam ? [TEAM_NAV] : []),
+  ]
 
   const active =
     items
@@ -46,71 +63,53 @@ export function AppLayout({ children }: { children: ReactNode }) {
     return () => el.removeEventListener('scroll', onScroll)
   }, [])
 
-  const roleLabel = isOperator ? 'Оператор' : 'Клиент'
+  const roleLabel = {
+    client: 'Владелец', client_admin: 'Администратор', editor: 'Редактор', viewer: 'Наблюдатель',
+    operator: 'Оператор', admin: 'Администратор платформы',
+  }[user?.role || 'viewer']
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'var(--side-w, 248px) 1fr', height: '100vh' }}>
+    <div className="app-shell">
       {/* --- сайдбар: тёмный «структурный» слой (apple §12) --- */}
       <aside
+        className="app-sidebar"
         style={{
           background: 'linear-gradient(180deg, var(--side-bg-2), var(--side-bg))',
           borderRight: '1px solid var(--side-hairline)',
           display: 'flex',
           flexDirection: 'column',
-          padding: '18px 12px',
+          padding: '18px 14px',
           gap: 4,
         }}
       >
-        <div style={{ padding: '6px 10px 20px' }}>
+        <div className="app-sidebar-brand" style={{ padding: '6px 10px 20px' }}>
           <Brand dark />
         </div>
 
         <div
-          className="eyebrow"
+          className="eyebrow app-sidebar-eyebrow"
           style={{ padding: '0 12px 8px', color: 'rgba(147,161,181,0.7)' }}
         >
           Навигация
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <nav className="app-nav">
           {items.map((item) => {
             const on = active === item.key
             return (
               <button
                 key={item.key}
                 onClick={() => navigate(item.key)}
-                className="tap"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '10px 12px',
-                  border: 'none',
-                  borderRadius: 'var(--r-md)',
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  fontWeight: on ? 600 : 500,
-                  color: on ? '#5eead4' : 'var(--side-muted)',
-                  background: on ? 'var(--side-active)' : 'transparent',
-                  boxShadow: on ? 'inset 3px 0 0 #14b8a6' : 'none',
-                  transition: 'background 160ms var(--ease-out), color 160ms var(--ease-out)',
-                  textAlign: 'left',
-                }}
-                onMouseEnter={(e) => {
-                  if (!on) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                }}
-                onMouseLeave={(e) => {
-                  if (!on) e.currentTarget.style.background = 'transparent'
-                }}
+                className={`app-nav-button tap${on ? ' app-nav-button--active' : ''}`}
               >
-                <span style={{ fontSize: 17, display: 'inline-flex' }}>{item.icon}</span>
-                {item.label}
+                <span className="app-nav-button__icon">{item.icon}</span>
+                <span>{item.label}</span>
               </button>
             )
           })}
         </nav>
 
-        <div style={{ marginTop: 'auto', padding: '0 6px' }}>
+        <div className="app-sidebar-footer" style={{ marginTop: 'auto', padding: '0 6px' }}>
           <div
             style={{
               fontSize: 12,
@@ -130,8 +129,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* --- основная область --- */}
-      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         <header
+          className="app-header"
           style={{
             position: 'sticky',
             top: 0,
@@ -150,7 +150,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             transition: 'border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out)',
           }}
         >
-          <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+          <div className="app-header-context" style={{ color: 'var(--muted)', fontSize: 13 }}>
             Национальный каталог · маркировка одежды
           </div>
 
@@ -181,15 +181,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Avatar size={28} style={{ background: 'var(--accent)', fontSize: 13 }}>
                 {(user?.full_name || user?.email || '?').slice(0, 1).toUpperCase()}
               </Avatar>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+              <span className="app-user-label" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
                 {user?.full_name || user?.email}
               </span>
             </button>
           </Dropdown>
         </header>
 
-        <main id="content-scroll" className="app-canvas" style={{ overflow: 'auto', flex: 1 }}>
-          <div key={location.pathname} className="rise" style={{ maxWidth: 1240, margin: '0 auto', padding: '28px' }}>
+        <main
+          id="content-scroll"
+          className="app-canvas"
+          style={{ overflow: 'auto', flex: 1, minHeight: 0 }}
+        >
+          <div key={location.pathname} className="rise app-content" style={{ maxWidth: 1240, margin: '0 auto' }}>
             {children}
           </div>
         </main>

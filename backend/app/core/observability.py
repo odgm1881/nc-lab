@@ -75,6 +75,11 @@ class FixedWindowRateLimiter:
 
 request_metrics = RequestMetrics()
 auth_rate_limiter = FixedWindowRateLimiter()
+AUTH_CREDENTIAL_PATHS = {
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/token",
+}
 
 
 def get_correlation_id() -> str | None:
@@ -118,10 +123,12 @@ def register_request_logging(app: FastAPI) -> None:
         try:
             if (
                 settings.app_env in {"staging", "production"}
-                and request.url.path in {"/api/auth/login", "/api/auth/register"}
+                and request.url.path in AUTH_CREDENTIAL_PATHS
             ):
                 host = request.client.host if request.client else "unknown"
-                key = f"{host}:{request.url.path}"
+                # Все способы получить JWT делят один бюджет. Иначе перебор можно
+                # продолжить через совместимый form-endpoint /auth/token.
+                key = f"{host}:auth-credentials"
                 if not auth_rate_limiter.allow(key, settings.auth_rate_limit_per_minute):
                     status_code = 429
                     response = JSONResponse(

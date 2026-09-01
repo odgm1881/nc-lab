@@ -6,7 +6,7 @@ import tempfile
 import pytest
 
 # Настраиваем тестовую БД ДО импорта приложения (settings кэшируется).
-_TMP_DB = os.path.join(tempfile.gettempdir(), "nklab_test.db")
+_TMP_DB = os.path.join(tempfile.gettempdir(), f"nklab_test_{os.getpid()}.db")
 os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{_TMP_DB}"
 os.environ["JWT_SECRET"] = "test-secret"
 
@@ -22,6 +22,8 @@ from app.modules.catalog import models as _catalog  # noqa: E402,F401
 from app.modules.import_data import models as _import  # noqa: E402,F401
 from app.modules.nk_exchange import models as _nk_exchange  # noqa: E402,F401
 from app.modules.operator import models as _operator  # noqa: E402,F401
+from app.modules.pilots import models as _pilots  # noqa: E402,F401
+from app.modules.validation_rulesets import models as _validation_rulesets  # noqa: E402,F401
 
 
 @pytest.fixture(autouse=True)

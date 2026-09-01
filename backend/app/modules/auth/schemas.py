@@ -39,3 +39,30 @@ class UserOut(BaseModel):
     client_id: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class TeamUserCreateIn(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=6)
+    full_name: str = Field(default="", max_length=255)
+    role: str = "editor"
+
+    _password_length = field_validator("password")(_validate_bcrypt_length)
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, value: str) -> str:
+        if value not in {"client_admin", "editor", "viewer"}:
+            raise ValueError("Допустимые роли: client_admin, editor, viewer")
+        return value
+
+
+class TeamUserRoleIn(BaseModel):
+    role: str
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, value: str) -> str:
+        if value not in {"client_admin", "editor", "viewer"}:
+            raise ValueError("Допустимые роли: client_admin, editor, viewer")
+        return value

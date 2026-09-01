@@ -1,7 +1,9 @@
 """Сценарии модуля вариаций. Оркестрация над чистым доменом."""
 
+from app.core.exceptions import DomainError
 from app.modules.variations.domain import (
     VariationAxes,
+    VariationLimitError,
     build_variations,
     variation_count,
     variation_sku,
@@ -20,7 +22,10 @@ def preview_variations(data: VariationAxesIn) -> VariationPreviewOut:
         genders=data.genders,
         completeness=data.completeness,
     )
-    variations = build_variations(axes)
+    try:
+        variations = build_variations(axes)
+    except VariationLimitError as exc:
+        raise DomainError(str(exc), code="VARIATION_LIMIT_EXCEEDED") from exc
     out = [
         VariationOut(
             sku=variation_sku(data.base_vendor_code, v),

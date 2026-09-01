@@ -47,13 +47,14 @@ from app.modules.catalog.schemas import (
 from app.modules.gtin.domain import normalize_gtin
 from app.modules.validation.domain.registry import (
     REFERENCE_DATA_VERSION,
-    RULESET_VERSION,
     run_validation,
 )
 from app.modules.validation.domain.result import CardView, ValidationContext, ValidationResult
 from app.modules.validation.service import result_to_schema
+from app.modules.validation_rulesets.service import ResolvedRuleSet, resolve_ruleset
 from app.modules.variations.domain import (
     VariationAxes,
+    VariationLimitError,
     build_variations,
     variation_sku,
 )
@@ -84,20 +85,25 @@ def _card_view(card: Card) -> CardView:
     )
 
 
-def _store_result(card: Card, result: ValidationResult) -> None:
+def _store_result(card: Card, result: ValidationResult, ruleset_version: str) -> None:
     card.status = STATUS_VALID if result.is_valid else STATUS_ERROR
     card.validation_issues = [
         {"code": i.code, "severity": i.severity.value, "message": i.message, "field": i.field}
         for i in result.issues
     ]
-    card.ruleset_version = RULESET_VERSION
+    card.ruleset_version = ruleset_version
     card.reference_data_version = REFERENCE_DATA_VERSION
 
 
 def _validate_one(db: Session, client_id: str, card: Card) -> ValidationResult:
     context = ValidationContext(gtin_index=repo.gtin_index(db, client_id, exclude_id=card.id))
-    result = run_validation(_card_view(card), context)
-    _store_result(card, result)
+    ruleset = resolve_ruleset(db, card.category_code)
+    result = run_validation(
+        _card_view(card),
+        context,
+        rule_names=ruleset.rule_names,
+    )
+    _store_result(card, result, ruleset.version)
     return result
 
 
@@ -110,9 +116,17 @@ def _validate_many(db: Session, client_id: str, cards: list[Card]) -> None:
     if not cards:
         return
     index = repo.gtin_index(db, client_id)
+    rulesets: dict[str | None, ResolvedRuleSet] = {}
     for card in cards:
-        result = run_validation(_card_view(card), ValidationContext(gtin_index=index))
-        _store_result(card, result)
+        if card.category_code not in rulesets:
+            rulesets[card.category_code] = resolve_ruleset(db, card.category_code)
+        ruleset = rulesets[card.category_code]
+        result = run_validation(
+            _card_view(card),
+            ValidationContext(gtin_index=index),
+            rule_names=ruleset.rule_names,
+        )
+        _store_result(card, result, ruleset.version)
 
 
 def _status_counts(db: Session, client_id: str) -> dict[str, int]:
@@ -284,11 +298,14 @@ def validate_card(
         entity_type="card",
         entity_id=card.id,
         after=audit_service.snapshot(card),
-        details={"is_valid": result.is_valid, "ruleset_version": RULESET_VERSION},
+        details={"is_valid": result.is_valid, "ruleset_version": card.ruleset_version},
     )
     db.commit()
     db.refresh(card)
-    return CardValidateOut(card=_to_out(card), result=result_to_schema(result))
+    return CardValidateOut(
+        card=_to_out(card),
+        result=result_to_schema(result, ruleset_version=card.ruleset_version),
+    )
 
 
 def validate_all(
@@ -304,7 +321,12 @@ def validate_all(
         action="card.bulk_validated",
         entity_type="card_collection",
         entity_id=None,
-        details={"count": len(cards), "ruleset_version": RULESET_VERSION},
+        details={
+            "count": len(cards),
+            "ruleset_versions": sorted(
+                {card.ruleset_version for card in cards if card.ruleset_version}
+            ),
+        },
     )
     db.commit()
     counts = _status_counts(db, client_id)
@@ -324,6 +346,25 @@ def mark_ready(
         raise DomainError(
             "Готовой к публикации можно отметить только валидную карточку.",
             code="NOT_VALID",
+        )
+    # РД, справочники и набор правил меняются со временем. Нельзя доверять
+    # сохранённому status=valid без проверки непосредственно перед выпуском.
+    result = _validate_one(db, client_id, card)
+    audit_service.record(
+        db,
+        client_id=client_id,
+        actor_id=actor_id,
+        action="card.revalidated_for_release",
+        entity_type="card",
+        entity_id=card.id,
+        after=audit_service.snapshot(card),
+        details={"is_valid": result.is_valid, "ruleset_version": card.ruleset_version},
+    )
+    if not result.is_valid:
+        db.commit()
+        raise DomainError(
+            "Карточка больше не проходит актуальные проверки. Исправьте замечания.",
+            code="VALIDATION_STALE",
         )
     card.status = STATUS_PUBLISHED
     audit_service.record(
@@ -362,7 +403,10 @@ def build_from_variations(
         genders=data.genders,
         completeness=data.completeness,
     )
-    variations = build_variations(axes)
+    try:
+        variations = build_variations(axes)
+    except VariationLimitError as exc:
+        raise DomainError(str(exc), code="VARIATION_LIMIT_EXCEEDED") from exc
     cards: list[Card] = []
     for v in variations:
         attributes = {**(data.common_attributes or {}), **v.as_attributes()}
@@ -404,6 +448,39 @@ def build_from_variations(
     for c in cards:
         db.refresh(c)
     return BuildFromVariationsOut(created=len(cards), cards=[_to_out(c) for c in cards])
+
+
+def require_current_published_card(
+    db: Session,
+    client_id: str,
+    card_id: str,
+    actor_id: str | None = None,
+) -> Card:
+    """Вернуть готовую карточку только после актуальной проверки перед обменом."""
+    card = _require(db, client_id, card_id)
+    if card.status != STATUS_PUBLISHED:
+        raise DomainError("Для обмена карточка должна быть готова к публикации.")
+    result = _validate_one(db, client_id, card)
+    if result.is_valid:
+        # _validate_one выставляет valid; сохраняем бизнес-статус готовой карточки.
+        card.status = STATUS_PUBLISHED
+    audit_service.record(
+        db,
+        client_id=client_id,
+        actor_id=actor_id,
+        action="card.revalidated_for_exchange",
+        entity_type="card",
+        entity_id=card.id,
+        after=audit_service.snapshot(card),
+        details={"is_valid": result.is_valid, "ruleset_version": card.ruleset_version},
+    )
+    if not result.is_valid:
+        db.commit()
+        raise DomainError(
+            "Карточка больше не проходит актуальные проверки и не может быть отправлена.",
+            code="VALIDATION_STALE",
+        )
+    return card
 
 
 def create_cards_bulk_items(

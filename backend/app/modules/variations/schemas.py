@@ -5,10 +5,10 @@ from pydantic import BaseModel, Field
 
 class VariationAxesIn(BaseModel):
     base_vendor_code: str = Field(default="SKU", description="Базовый артикул модели")
-    colors: list[str] = Field(default_factory=list)
-    sizes: list[str] = Field(default_factory=list)
-    genders: list[str] = Field(default_factory=list)
-    completeness: list[str] = Field(default_factory=list)
+    colors: list[str] = Field(default_factory=list, max_length=100)
+    sizes: list[str] = Field(default_factory=list, max_length=100)
+    genders: list[str] = Field(default_factory=list, max_length=100)
+    completeness: list[str] = Field(default_factory=list, max_length=100)
 
 
 class VariationOut(BaseModel):

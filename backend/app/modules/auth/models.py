@@ -21,8 +21,15 @@ def _now() -> datetime:
 
 # Роли: client — сотрудник клиента, operator — оператор каталога НК-ЛАБ, admin.
 ROLE_CLIENT = "client"
+ROLE_CLIENT_ADMIN = "client_admin"
+ROLE_EDITOR = "editor"
+ROLE_VIEWER = "viewer"
 ROLE_OPERATOR = "operator"
 ROLE_ADMIN = "admin"
+
+CLIENT_ROLES = (ROLE_CLIENT, ROLE_CLIENT_ADMIN, ROLE_EDITOR, ROLE_VIEWER)
+EDIT_ROLES = (ROLE_CLIENT, ROLE_CLIENT_ADMIN, ROLE_EDITOR, ROLE_OPERATOR, ROLE_ADMIN)
+CLIENT_ADMIN_ROLES = (ROLE_CLIENT, ROLE_CLIENT_ADMIN, ROLE_ADMIN)
 
 
 class Client(Base):

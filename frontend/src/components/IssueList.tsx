@@ -10,7 +10,7 @@ export function IssueList({ issues }: { issues: Issue[] }) {
         type="success"
         showIcon
         icon={<CheckCircleOutlined />}
-        message="Замечаний нет — карточка готова к публикации."
+        title="Замечаний нет — карточка готова к публикации."
       />
     )
   }

@@ -42,3 +42,20 @@ def test_production_accepts_explicit_safe_settings() -> None:
         metrics_token="m" * 16,
     )
     assert value.cors_origin_list == ["https://cabinet.example", "https://admin.example"]
+
+
+def test_nk_api_requires_https_and_credentials() -> None:
+    with pytest.raises(ValidationError, match="NK_API_KEY"):
+        Settings(_env_file=None, nk_api_enabled=True)
+    with pytest.raises(ValidationError, match="HTTPS"):
+        Settings(
+            _env_file=None,
+            nk_api_enabled=True,
+            nk_api_key="secret",
+            nk_api_base_url="http://nk.example",
+        )
+
+
+def test_import_limits_are_bounded() -> None:
+    with pytest.raises(ValidationError, match="MAX_IMPORT_ROWS"):
+        Settings(_env_file=None, max_import_rows=0)

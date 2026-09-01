@@ -1,7 +1,11 @@
 """Юнит-тесты доменной логики вариаций. Без базы и HTTP."""
 
+import pytest
+
 from app.modules.variations.domain import (
+    MAX_VARIATION_COMBINATIONS,
     VariationAxes,
+    VariationLimitError,
     build_variations,
     variation_count,
     variation_sku,
@@ -48,3 +52,16 @@ def test_variation_as_attributes_skips_none():
     axes = VariationAxes(colors=["синий"], sizes=["L"])
     attrs = build_variations(axes)[0].as_attributes()
     assert attrs == {"color": "синий", "size": "L"}
+
+
+def test_cartesian_product_above_limit_is_not_materialized():
+    values = [str(index) for index in range(10)]
+    axes = VariationAxes(
+        colors=values,
+        sizes=values,
+        genders=values,
+        completeness=values,
+    )
+    assert variation_count(axes) > MAX_VARIATION_COMBINATIONS
+    with pytest.raises(VariationLimitError, match="Слишком много комбинаций"):
+        build_variations(axes)

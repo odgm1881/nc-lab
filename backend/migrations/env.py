@@ -15,6 +15,8 @@ from app.modules.catalog import models as _catalog  # noqa: F401
 from app.modules.import_data import models as _import  # noqa: F401
 from app.modules.nk_exchange import models as _nk_exchange  # noqa: F401
 from app.modules.operator import models as _operator  # noqa: F401
+from app.modules.pilots import models as _pilots  # noqa: F401
+from app.modules.validation_rulesets import models as _validation_rulesets  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

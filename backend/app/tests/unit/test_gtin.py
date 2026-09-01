@@ -35,6 +35,13 @@ def test_non_digits():
     assert not result.is_digits or not result.valid
 
 
+def test_non_digits_are_not_silently_removed():
+    result = check_gtin("46A01000001002")
+    assert result.gtin == "46A01000001002"
+    assert not result.is_digits
+    assert not result.valid
+
+
 def test_normalize_strips_spaces():
     assert normalize_gtin("  4600 0000 00015 ") == "4600000000015"
 

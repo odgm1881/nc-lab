@@ -7,7 +7,7 @@ from app.core.exceptions import AuthError
 from app.database import get_db
 from app.modules.audit import service as audit_service
 from app.modules.audit.schemas import AuditEventOut
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, require_editor
 from app.modules.auth.models import User
 from app.modules.catalog import service
 from app.modules.catalog.schemas import (
@@ -70,7 +70,7 @@ def list_models(
 @router.post("/validate-all", response_model=ValidateAllOut)
 def validate_all(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ) -> ValidateAllOut:
     """Провалидировать все карточки, ещё не отмеченные готовыми."""
     return service.validate_all(db, _client_id(user), user.id)
@@ -80,7 +80,7 @@ def validate_all(
 def bulk_update(
     data: CardBulkUpdateIn,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ) -> CardBulkUpdateOut:
     return service.bulk_update(db, _client_id(user), data, user.id)
 
@@ -103,7 +103,7 @@ def export_cards(
 def create_card(
     data: CardCreateIn,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ) -> CardOut:
     return service.create_card(db, _client_id(user), data, user.id)
 
@@ -112,7 +112,7 @@ def create_card(
 def build_from_variations(
     data: BuildFromVariationsIn,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ) -> BuildFromVariationsOut:
     return service.build_from_variations(db, _client_id(user), data, user.id)
 
@@ -142,7 +142,7 @@ def update_card(
     card_id: str,
     data: CardUpdateIn,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ) -> CardOut:
     return service.update_card(db, _client_id(user), card_id, data, user.id)
 
@@ -151,7 +151,7 @@ def update_card(
 def delete_card(
     card_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ) -> None:
     service.delete_card(db, _client_id(user), card_id, user.id)
 
@@ -160,7 +160,7 @@ def delete_card(
 def validate_card(
     card_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ) -> CardValidateOut:
     return service.validate_card(db, _client_id(user), card_id, user.id)
 
@@ -169,7 +169,7 @@ def validate_card(
 def mark_ready(
     card_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ) -> CardOut:
     """Отметить карточку готовой к публикации без внешнего обмена."""
     return service.mark_ready(db, _client_id(user), card_id, user.id)
@@ -179,7 +179,7 @@ def mark_ready(
 def publish_card(
     card_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_editor),
 ) -> CardOut:
     """Устаревший маршрут для совместимости; внешней публикации не выполняет."""
     return service.publish_card(db, _client_id(user), card_id, user.id)
